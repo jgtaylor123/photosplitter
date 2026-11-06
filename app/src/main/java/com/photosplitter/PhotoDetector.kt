@@ -63,7 +63,7 @@ object PhotoDetector {
             for (vertical in axes) {
                 val length = if (vertical) bw else bh
                 val cross = if (vertical) bh else bw
-                if (length < max(40, cross * 1.3f).toInt()) continue
+                if (length < max(40, (cross * 1.3f).toInt())) continue
                 val minSide = max(12, length / 4)
                 if (length <= minSide * 2) continue
                 val counts = IntArray(length)
