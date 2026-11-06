@@ -63,7 +63,7 @@ object PhotoDetector {
             for (vertical in axes) {
                 val length = if (vertical) bw else bh
                 val cross = if (vertical) bh else bw
-                if (length < max(40, (cross * 1.3f).toInt())) continue
+                // A 2x2 grid can be nearly square, so do not require the candidate\n                // to be elongated before checking for a dark dividing gutter.\n                if (length < 40) continue
                 val minSide = max(12, length / 4)
                 if (length <= minSide * 2) continue
                 val counts = IntArray(length)
