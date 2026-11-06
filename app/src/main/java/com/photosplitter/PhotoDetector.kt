@@ -32,13 +32,31 @@ object PhotoDetector {
                 if(edge) boundary.add(PointF(x.toFloat(),y.toFloat()))
             }
             if(count < w*h/260 || boundary.size<20) continue
-            // Principal-axis oriented bounding rectangle, robust to rotated prints.
+            // Fit the outer card edges, not the covariance of its printed content.
+            // Search orientations for the tightest enclosing rectangle. A small
+            // regularisation favours square-to-camera edges when areas are similar.
             var cx=0.0;var cy=0.0
             for(p in boundary){cx+=p.x;cy+=p.y}
             cx/=boundary.size;cy/=boundary.size
-            var xx=0.0;var yy=0.0;var xy=0.0
-            for(p in boundary){val dx=p.x-cx;val dy=p.y-cy;xx+=dx*dx;yy+=dy*dy;xy+=dx*dy}
-            val angle=.5*atan2(2*xy,xx-yy)
+            var angle=0.0
+            var best=Double.POSITIVE_INFINITY
+            for(deg in -45..45) {
+                val theta=deg*PI/180.0
+                val ca=cos(theta);val sa=sin(theta)
+                var minU=Double.POSITIVE_INFINITY;var maxU=Double.NEGATIVE_INFINITY
+                var minV=Double.POSITIVE_INFINITY;var maxV=Double.NEGATIVE_INFINITY
+                for(p in boundary) {
+                    val dx=p.x-cx;val dy=p.y-cy
+                    val u=dx*ca+dy*sa;val v=-dx*sa+dy*ca
+                    minU=min(minU,u);maxU=max(maxU,u)
+                    minV=min(minV,v);maxV=max(maxV,v)
+                }
+                val area=(maxU-minU)*(maxV-minV)
+                val score=area*(1.0+0.00035*abs(deg))
+                if(score<best){best=score;angle=theta}
+            }
+            // Near-horizontal/vertical cards should not acquire visible skew.
+            if(abs(angle)<3*PI/180)angle=0.0
             val a=cos(angle);val b=sin(angle)
             var loU=Double.POSITIVE_INFINITY;var hiU=Double.NEGATIVE_INFINITY
             var loV=Double.POSITIVE_INFINITY;var hiV=Double.NEGATIVE_INFINITY
@@ -48,7 +66,7 @@ object PhotoDetector {
                 loU=min(loU,u);hiU=max(hiU,u);loV=min(loV,v);hiV=max(hiV,v)
             }
             val bw=hiU-loU;val bh=hiV-loV
-            if(bw< w/15.0 || bh<h/15.0 || bw/bh !in .35..2.85 || count/(bw*bh)<.45) continue
+            if(bw< w/15.0 || bh<h/15.0 || bw/bh !in .35..2.85 || count/(bw*bh)<.55) continue
             val pad=max(2.0,min(bw,bh)*.025)
             loU-=pad;hiU+=pad;loV-=pad;hiV+=pad
             fun corner(u:Double,v:Double):PointF = PointF(
