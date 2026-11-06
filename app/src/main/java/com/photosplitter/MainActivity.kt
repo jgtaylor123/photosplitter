@@ -256,7 +256,7 @@ class MainActivity : Activity() {
         status.text = "Detecting photos..."
         Thread {
             try {
-                val boxes = PhotoDetector.detectBoxes(source)
+                val boxes = PhotoDetector.detectQuads(source)
                 runOnUiThread {
                     editor.photo = source
                     editor.setBoxes(boxes)
@@ -279,7 +279,7 @@ class MainActivity : Activity() {
 
     private fun saveCrops() {
         val source = selected ?: return
-        val boxes = editor.boxes.map { android.graphics.RectF(it) }
+        val boxes = editor.boxes.map { it.copyQuad() }
         if (boxes.isEmpty()) {
             Toast.makeText(this, "No crop boxes to save", Toast.LENGTH_SHORT).show()
             return
