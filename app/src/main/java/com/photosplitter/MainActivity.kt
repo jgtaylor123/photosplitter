@@ -2,43 +2,49 @@ package com.photosplitter
 
 import android.app.Activity
 import android.content.Intent
+import android.content.ContentValues
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Color
+import android.graphics.Matrix
+import android.media.ExifInterface
+import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
-import android.content.ContentValues
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import android.view.ViewGroup
-import kotlin.math.abs
+import androidx.core.content.FileProvider
+import java.io.File
 import kotlin.math.max
-import kotlin.math.min
-import java.util.ArrayDeque
 
 class MainActivity : Activity() {
     private lateinit var status: TextView
     private var selected: Bitmap? = null
+    private var pendingCameraFile: File? = null
     private val requestPick = 100
+    private val requestCamera = 101
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingCameraFile = savedInstanceState?.getString("cameraPath")?.let(::File)
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 50, 40, 30)
         }
         val title = TextView(this).apply { text = "PhotoSplitter"; textSize = 28f }
         status = TextView(this).apply {
-            text = "Place separate prints on a dark, plain background. Photograph them with your phone's camera, then select the image here."
+            text = "Arrange prints with gaps on a dark, plain background. Take a photo or select an existing image."
             textSize = 16f
         }
+        val camera = Button(this).apply {
+            text = "Take Photo"
+            setOnClickListener { takePhoto() }
+        }
         val pick = Button(this).apply {
-            text = "Choose batch photograph"
+            text = "Choose Existing Photo"
             setOnClickListener {
-                val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
-                startActivityForResult(intent, requestPick)
+                startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }, requestPick)
             }
         }
         val split = Button(this).apply {
@@ -47,32 +53,80 @@ class MainActivity : Activity() {
         }
         layout.addView(title)
         layout.addView(status)
+        layout.addView(camera)
         layout.addView(pick)
         layout.addView(split)
         setContentView(layout)
     }
 
-    @Deprecated("Legacy picker callback")
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("cameraPath", pendingCameraFile?.absolutePath)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun takePhoto() {
+        try {
+            val file = File.createTempFile("batch_", ".jpg", cacheDir)
+            pendingCameraFile = file
+            val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = android.content.ClipData.newUri(contentResolver, "PhotoSplitter capture", uri)
+            }
+            startActivityForResult(intent, requestCamera)
+        } catch (e: Exception) {
+            status.text = "Unable to launch camera: ${e.message}"
+        }
+    }
+
+    @Deprecated("Legacy activity result callback")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != requestPick || resultCode != RESULT_OK) return
+        if (requestCode != requestPick && requestCode != requestCamera) return
+        if (resultCode != RESULT_OK) {
+            if (requestCode == requestCamera) pendingCameraFile?.delete()
+            return
+        }
         try {
-            val uri = data?.data ?: return
+            val uri: Uri = if (requestCode == requestCamera) {
+                val file = pendingCameraFile ?: error("Camera file missing")
+                if (file.length() == 0L) error("Camera returned an empty photo")
+                Uri.fromFile(file)
+            } else data?.data ?: error("No photo selected")
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) error("Invalid image")
             var sample = 1
             while (max(bounds.outWidth, bounds.outHeight) / sample > 3200) sample *= 2
             val opts = BitmapFactory.Options().apply { inSampleSize = sample }
-            selected = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
-            status.text = "Image selected. Ready to detect photographs."
+            val decoded = contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, opts)
+            } ?: error("Could not decode image")
+            val orientation = contentResolver.openInputStream(uri)?.use {
+                ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            } ?: ExifInterface.ORIENTATION_NORMAL
+            val matrix = Matrix()
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+                ExifInterface.ORIENTATION_TRANSPOSE -> { matrix.postRotate(90f); matrix.postScale(-1f, 1f) }
+                ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.postRotate(270f); matrix.postScale(-1f, 1f) }
+            }
+            selected = if (!matrix.isIdentity) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true) else decoded
+            if (selected !== decoded) decoded.recycle()
+            status.text = "Photo ready. Tap Detect, crop and save."
         } catch (e: Exception) {
-            status.text = "Could not open image: ${e.message}"
+            status.text = "Could not load photo: ${e.message}"
         }
     }
 
     private fun process() {
         val source = selected ?: run {
-            Toast.makeText(this, "Choose an image first", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Take or choose a photo first", Toast.LENGTH_SHORT).show()
             return
         }
         status.text = "Processing..."
