@@ -13,6 +13,7 @@ import android.provider.MediaStore
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ImageView
+import android.widget.ScrollView
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
@@ -23,6 +24,8 @@ import kotlin.math.max
 class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var preview: ImageView
+    private lateinit var results: LinearLayout
+    private val displayedCrops = mutableListOf<Bitmap>()
     private var selected: Bitmap? = null
     private var pendingCameraFile: File? = null
     private val requestPick = 100
@@ -69,7 +72,9 @@ class MainActivity : Activity() {
             }
         }
         layout.addView(preview)
-        setContentView(layout)
+        results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        layout.addView(results)
+        setContentView(ScrollView(this).apply { addView(layout) })
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -131,6 +136,7 @@ class MainActivity : Activity() {
             }
             selected = if (!matrix.isIdentity) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true) else decoded
             if (selected !== decoded) decoded.recycle()
+            clearResults()
             preview.setImageBitmap(selected)
             preview.visibility = View.VISIBLE
             status.text = "Photo ready. Tap Detect, crop and save."
@@ -139,11 +145,18 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun clearResults() {
+        results.removeAllViews()
+        displayedCrops.forEach { if (!it.isRecycled) it.recycle() }
+        displayedCrops.clear()
+    }
+
     private fun process() {
         val source = selected ?: run {
             Toast.makeText(this, "Take or choose a photo first", Toast.LENGTH_SHORT).show()
             return
         }
+        clearResults()
         status.text = "Processing..."
         Thread {
             try {
@@ -158,9 +171,28 @@ class MainActivity : Activity() {
                     val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: continue
                     contentResolver.openOutputStream(uri)?.use { crop.compress(Bitmap.CompressFormat.JPEG, 95, it) }
                     saved++
-                    crop.recycle()
+                    // Keep the bitmap for the on-screen crop preview.
                 }
-                runOnUiThread { status.text = "Saved $saved crops to Pictures/PhotoSplitter. Check every crop before discarding originals." }
+                runOnUiThread {
+                    displayedCrops.addAll(crops)
+                    val heading = TextView(this).apply {
+                        text = "Detected photos (${crops.size})"
+                        textSize = 22f
+                        setPadding(0, 24, 0, 12)
+                    }
+                    results.addView(heading)
+                    crops.forEachIndexed { index, crop ->
+                        results.addView(TextView(this).apply { text = "Photo ${index + 1}"; textSize = 17f })
+                        results.addView(ImageView(this).apply {
+                            setImageBitmap(crop)
+                            adjustViewBounds = true
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                            contentDescription = "Cropped photo ${index + 1}"
+                            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 20 }
+                        })
+                    }
+                    status.text = "Saved $saved crops to Pictures/PhotoSplitter. Review each crop below before discarding originals."
+                }
             } catch (e: Exception) {
                 runOnUiThread { status.text = "Processing failed: ${e.message}" }
             }
