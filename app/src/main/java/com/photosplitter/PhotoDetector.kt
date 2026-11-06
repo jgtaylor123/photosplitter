@@ -47,7 +47,57 @@ object PhotoDetector {
                     (maxX + 1).toFloat() / w * source.width, (maxY + 1).toFloat() / h * source.height))
             }
         }
-        return boxes.sortedWith(compareBy({ it.top }, { it.left }))
+        // A thin bridge of glare or a bright card edge can join two prints into
+        // one connected component. Split at a genuine dark horizontal gutter.
+        val separated = ArrayList<RectF>()
+        fun splitAtGutters(box: RectF, depth: Int = 0) {
+            if (depth >= 3) { separated.add(box); return }
+            val left = (box.left / source.width * w).toInt().coerceIn(0, w - 1)
+            val right = (box.right / source.width * w).toInt().coerceIn(left + 1, w)
+            val top = (box.top / source.height * h).toInt().coerceIn(0, h - 1)
+            val bottom = (box.bottom / source.height * h).toInt().coerceIn(top + 1, h)
+            val bw = right - left
+            val bh = bottom - top
+            if (bh < h / 5 || bh < bw * 1.35f) { separated.add(box); return }
+            val counts = IntArray(bh)
+            for (y in top until bottom) {
+                var count = 0
+                for (x in left until right) if (mask[y * w + x]) count++
+                counts[y - top] = count
+            }
+            // Require a low-occupancy band away from both ends, and a strong
+            // foreground area on each side of the proposed split.
+            val minSide = max(h / 12, bh / 5)
+            var best = -1
+            var bestCount = bw
+            for (i in minSide until bh - minSide) {
+                val local = (max(0, i - 2)..min(bh - 1, i + 2)).sumOf { counts[it] } / (min(bh - 1, i + 2) - max(0, i - 2) + 1)
+                if (local < bestCount) { bestCount = local; best = i }
+            }
+            if (best < 0 || bestCount > bw * 0.22f) { separated.add(box); return }
+            fun foregroundBounds(y0: Int, y1: Int): RectF? {
+                var x0 = right; var x1 = left; var yy0 = y1; var yy1 = y0
+                for (y in y0 until y1) for (x in left until right) {
+                    if (mask[y * w + x]) {
+                        x0 = min(x0, x); x1 = max(x1, x)
+                        yy0 = min(yy0, y); yy1 = max(yy1, y)
+                    }
+                }
+                if (x1 <= x0 || yy1 <= yy0 || x1 - x0 < w / 10 || yy1 - yy0 < h / 12) return null
+                val pad = max(2, w / 150)
+                return RectF(max(0, x0 - pad).toFloat() / w * source.width,
+                    max(0, yy0 - pad).toFloat() / h * source.height,
+                    min(w, x1 + 1 + pad).toFloat() / w * source.width,
+                    min(h, yy1 + 1 + pad).toFloat() / h * source.height)
+            }
+            val upper = foregroundBounds(top, top + best)
+            val lower = foregroundBounds(top + best + 1, bottom)
+            if (upper == null || lower == null) { separated.add(box); return }
+            splitAtGutters(upper, depth + 1)
+            splitAtGutters(lower, depth + 1)
+        }
+        boxes.forEach { splitAtGutters(it) }
+        return separated.sortedWith(compareBy({ it.top }, { it.left }))
     }
 
     fun crop(source: Bitmap, box: RectF): Bitmap {
