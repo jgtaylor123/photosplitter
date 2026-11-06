@@ -47,54 +47,71 @@ object PhotoDetector {
                     (maxX + 1).toFloat() / w * source.width, (maxY + 1).toFloat() / h * source.height))
             }
         }
-        // A thin bridge of glare or a bright card edge can join two prints into
-        // one connected component. Split at a genuine dark horizontal gutter.
+        // Connected bright regions can merge adjacent prints. Search for dark
+        // gutters on either axis, not only horizontal ones.
         val separated = ArrayList<RectF>()
         fun splitAtGutters(box: RectF, depth: Int = 0) {
-            if (depth >= 3) { separated.add(box); return }
+            if (depth >= 4) { separated.add(box); return }
             val left = (box.left / source.width * w).toInt().coerceIn(0, w - 1)
             val right = (box.right / source.width * w).toInt().coerceIn(left + 1, w)
             val top = (box.top / source.height * h).toInt().coerceIn(0, h - 1)
             val bottom = (box.bottom / source.height * h).toInt().coerceIn(top + 1, h)
             val bw = right - left
             val bh = bottom - top
-            if (bh < h / 5 || bh < bw * 1.35f) { separated.add(box); return }
-            val counts = IntArray(bh)
-            for (y in top until bottom) {
-                var count = 0
-                for (x in left until right) if (mask[y * w + x]) count++
-                counts[y - top] = count
-            }
-            // Require a low-occupancy band away from both ends, and a strong
-            // foreground area on each side of the proposed split.
-            val minSide = max(h / 12, bh / 5)
-            var best = -1
-            var bestCount = bw
-            for (i in minSide until bh - minSide) {
-                val local = (max(0, i - 2)..min(bh - 1, i + 2)).sumOf { counts[it] } / (min(bh - 1, i + 2) - max(0, i - 2) + 1)
-                if (local < bestCount) { bestCount = local; best = i }
-            }
-            if (best < 0 || bestCount > bw * 0.22f) { separated.add(box); return }
-            fun foregroundBounds(y0: Int, y1: Int): RectF? {
-                var x0 = right; var x1 = left; var yy0 = y1; var yy1 = y0
-                for (y in y0 until y1) for (x in left until right) {
-                    if (mask[y * w + x]) {
-                        x0 = min(x0, x); x1 = max(x1, x)
-                        yy0 = min(yy0, y); yy1 = max(yy1, y)
+            // Try the longer axis first; the example has two side-by-side cards.
+            val axes = if (bw >= bh) listOf(true, false) else listOf(false, true)
+            for (vertical in axes) {
+                val length = if (vertical) bw else bh
+                val cross = if (vertical) bh else bw
+                if (length < max(40, cross * 1.3f).toInt()) continue
+                val minSide = max(12, length / 4)
+                if (length <= minSide * 2) continue
+                val counts = IntArray(length)
+                for (i in 0 until length) {
+                    var n = 0
+                    for (j in 0 until cross) {
+                        val x = if (vertical) left + i else left + j
+                        val y = if (vertical) top + j else top + i
+                        if (mask[y * w + x]) n++
                     }
+                    counts[i] = n
                 }
-                if (x1 <= x0 || yy1 <= yy0 || x1 - x0 < w / 10 || yy1 - yy0 < h / 12) return null
-                val pad = max(2, w / 150)
-                return RectF(max(0, x0 - pad).toFloat() / w * source.width,
-                    max(0, yy0 - pad).toFloat() / h * source.height,
-                    min(w, x1 + 1 + pad).toFloat() / w * source.width,
-                    min(h, yy1 + 1 + pad).toFloat() / h * source.height)
+                var best = -1
+                var lowest = cross
+                for (i in minSide until length - minSide) {
+                    val lo = max(0, i - 2)
+                    val hi = min(length - 1, i + 2)
+                    val avg = (lo..hi).sumOf { counts[it] } / (hi - lo + 1)
+                    if (avg < lowest) { lowest = avg; best = i }
+                }
+                if (best < 0 || lowest > cross * 0.25f) continue
+                fun bounds(start: Int, end: Int): RectF? {
+                    var x0 = right; var x1 = left - 1
+                    var y0 = bottom; var y1 = top - 1
+                    for (i in start until end) for (j in 0 until cross) {
+                        val x = if (vertical) left + i else left + j
+                        val y = if (vertical) top + j else top + i
+                        if (mask[y * w + x]) {
+                            x0 = min(x0, x); x1 = max(x1, x)
+                            y0 = min(y0, y); y1 = max(y1, y)
+                        }
+                    }
+                    if (x1 - x0 < w / 12 || y1 - y0 < h / 12) return null
+                    val pad = max(2, w / 150)
+                    return RectF(max(0, x0 - pad).toFloat() / w * source.width,
+                        max(0, y0 - pad).toFloat() / h * source.height,
+                        min(w, x1 + 1 + pad).toFloat() / w * source.width,
+                        min(h, y1 + 1 + pad).toFloat() / h * source.height)
+                }
+                val first = bounds(0, best)
+                val second = bounds(best + 1, length)
+                if (first != null && second != null) {
+                    splitAtGutters(first, depth + 1)
+                    splitAtGutters(second, depth + 1)
+                    return
+                }
             }
-            val upper = foregroundBounds(top, top + best)
-            val lower = foregroundBounds(top + best + 1, bottom)
-            if (upper == null || lower == null) { separated.add(box); return }
-            splitAtGutters(upper, depth + 1)
-            splitAtGutters(lower, depth + 1)
+            separated.add(box)
         }
         boxes.forEach { splitAtGutters(it) }
         return separated.sortedWith(compareBy({ it.top }, { it.left }))
