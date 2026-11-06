@@ -5,12 +5,26 @@ plugins {
 android {
     namespace = "com.photosplitter"
     compileSdk = 35
+    signingConfigs {
+        create("personal") {
+            storeFile = file(System.getenv("PHOTOSPLITTER_KEYSTORE_PATH") ?: "missing-signing-key.jks")
+            storePassword = System.getenv("PHOTOSPLITTER_KEYSTORE_PASSWORD") ?: ""
+            keyAlias = "photosplitter"
+            keyPassword = System.getenv("PHOTOSPLITTER_KEYSTORE_PASSWORD") ?: ""
+        }
+    }
     defaultConfig {
         applicationId = "com.photosplitter"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2"
+        versionCode = 3
+        versionName = "0.3"
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("personal")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
