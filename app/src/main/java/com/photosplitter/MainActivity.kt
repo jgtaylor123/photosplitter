@@ -24,6 +24,8 @@ import kotlin.math.max
 class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var preview: ImageView
+    private lateinit var editor: CropEditor
+    private lateinit var saveButton: Button
     private lateinit var results: LinearLayout
     private val displayedCrops = mutableListOf<Bitmap>()
     private var selected: Bitmap? = null
@@ -54,7 +56,7 @@ class MainActivity : Activity() {
             }
         }
         val split = Button(this).apply {
-            text = "Detect, crop and save"
+            text = "Detect Photos"
             setOnClickListener { process() }
         }
         layout.addView(title)
@@ -72,6 +74,30 @@ class MainActivity : Activity() {
             }
         }
         layout.addView(preview)
+        editor = CropEditor(this).apply {
+            visibility = View.GONE
+            onChanged = { showCrops() }
+        }
+        layout.addView(editor)
+        val edit = Button(this).apply {
+            text = "Edit Crops"
+            setOnClickListener {
+                if (selected == null) return@setOnClickListener
+                editor.editing = !editor.editing
+                editor.visibility = View.VISIBLE
+                preview.visibility = View.GONE
+                text = if (editor.editing) "Finish Editing" else "Edit Crops"
+                editor.invalidate()
+            }
+        }
+        layout.addView(edit)
+        layout.addView(Button(this).apply { text = "Add Crop Box"; setOnClickListener { editor.addBox() } })
+        layout.addView(Button(this).apply { text = "Remove Selected Box"; setOnClickListener { editor.removeSelected() } })
+        saveButton = Button(this).apply {
+            text = "Save Crops"
+            setOnClickListener { saveCrops() }
+        }
+        layout.addView(saveButton)
         results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         layout.addView(results)
         setContentView(ScrollView(this).apply { addView(layout) })
@@ -137,6 +163,9 @@ class MainActivity : Activity() {
             selected = if (!matrix.isIdentity) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true) else decoded
             if (selected !== decoded) decoded.recycle()
             clearResults()
+            editor.photo = selected
+            editor.setBoxes(emptyList())
+            editor.visibility = View.GONE
             preview.setImageBitmap(selected)
             preview.visibility = View.VISIBLE
             status.text = "Photo ready. Tap Detect, crop and save."
@@ -151,50 +180,77 @@ class MainActivity : Activity() {
         displayedCrops.clear()
     }
 
+    private fun showCrops() {
+        val source = selected ?: return
+        results.removeAllViews()
+        results.addView(TextView(this).apply {
+            text = "Detected photos (${editor.boxes.size})"
+            textSize = 22f
+            setPadding(0, 24, 0, 12)
+        })
+        editor.boxes.forEachIndexed { index, box ->
+            results.addView(TextView(this).apply { text = "Photo ${index + 1}"; textSize = 17f })
+            results.addView(ImageView(this).apply {
+                setImageBitmap(PhotoDetector.crop(source, box))
+                adjustViewBounds = true
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 20 }
+            })
+        }
+    }
+
     private fun process() {
         val source = selected ?: run {
             Toast.makeText(this, "Take or choose a photo first", Toast.LENGTH_SHORT).show()
             return
         }
-        clearResults()
-        status.text = "Processing..."
+        status.text = "Detecting photos..."
         Thread {
             try {
-                val crops = PhotoDetector.detect(source)
-                var saved = 0
-                for (crop in crops) {
+                val boxes = PhotoDetector.detectBoxes(source)
+                runOnUiThread {
+                    editor.photo = source
+                    editor.setBoxes(boxes)
+                    editor.visibility = View.VISIBLE
+                    preview.visibility = View.GONE
+                    status.text = "Found ${boxes.size} photos. Tap Edit Crops to adjust boxes, then Save Crops."
+                }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "Detection failed: ${e.message}" }
+            }
+        }.start()
+    }
+
+    private fun saveCrops() {
+        val source = selected ?: return
+        val boxes = editor.boxes.map { android.graphics.RectF(it) }
+        if (boxes.isEmpty()) {
+            Toast.makeText(this, "No crop boxes to save", Toast.LENGTH_SHORT).show()
+            return
+        }
+        status.text = "Saving..."
+        Thread {
+            var saved = 0
+            try {
+                for (box in boxes) {
+                    val crop = PhotoDetector.crop(source, box)
                     val values = ContentValues().apply {
                         put(MediaStore.Images.Media.DISPLAY_NAME, "PhotoSplitter_${System.currentTimeMillis()}_${saved}.jpg")
                         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
                         put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/PhotoSplitter")
                     }
-                    val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: continue
-                    contentResolver.openOutputStream(uri)?.use { crop.compress(Bitmap.CompressFormat.JPEG, 95, it) }
-                    saved++
-                    // Keep the bitmap for the on-screen crop preview.
-                }
-                runOnUiThread {
-                    displayedCrops.addAll(crops)
-                    val heading = TextView(this).apply {
-                        text = "Detected photos (${crops.size})"
-                        textSize = 22f
-                        setPadding(0, 24, 0, 12)
+                    val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                    if (uri != null) {
+                        contentResolver.openOutputStream(uri)?.use {
+                            crop.compress(Bitmap.CompressFormat.JPEG, 95, it)
+                            saved++
+                        }
                     }
-                    results.addView(heading)
-                    crops.forEachIndexed { index, crop ->
-                        results.addView(TextView(this).apply { text = "Photo ${index + 1}"; textSize = 17f })
-                        results.addView(ImageView(this).apply {
-                            setImageBitmap(crop)
-                            adjustViewBounds = true
-                            scaleType = ImageView.ScaleType.FIT_CENTER
-                            contentDescription = "Cropped photo ${index + 1}"
-                            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 20 }
-                        })
-                    }
-                    status.text = "Saved $saved crops to Pictures/PhotoSplitter. Review each crop below before discarding originals."
+                    crop.recycle()
                 }
+                runOnUiThread { status.text = "Saved $saved crops to Pictures/PhotoSplitter." }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "Processing failed: ${e.message}" }
+                runOnUiThread { status.text = "Save failed: ${e.message}" }
             }
         }.start()
     }
