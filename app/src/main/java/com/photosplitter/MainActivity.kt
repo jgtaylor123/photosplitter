@@ -28,6 +28,7 @@ class MainActivity : Activity() {
     private lateinit var preview: ImageView
     private lateinit var editor: CropEditor
     private lateinit var saveButton: Button
+    private lateinit var scroll: ScrollView
     private lateinit var results: LinearLayout
     private val displayedCrops = mutableListOf<Bitmap>()
     private var selected: Bitmap? = null
@@ -94,6 +95,12 @@ class MainActivity : Activity() {
             onChanged = { showCrops() }
         }
         layout.addView(editor)
+        results = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 18, 8, 12)
+        }
+        // Results must appear immediately after the source preview, before edit/save controls.
+        layout.addView(results)
         val edit = Button(this).apply {
             text = "Edit Crops"
             setOnClickListener {
@@ -115,9 +122,8 @@ class MainActivity : Activity() {
         }
         styleButton(saveButton, true)
         layout.addView(saveButton)
-        results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(8, 18, 8, 12) }
-        layout.addView(results)
-        setContentView(ScrollView(this).apply { addView(layout) })
+        scroll = ScrollView(this).apply { addView(layout) }
+        setContentView(scroll)
     }
 
     private fun rounded(fill: Int, radius: Int, stroke: Int? = null): GradientDrawable =
@@ -223,7 +229,7 @@ class MainActivity : Activity() {
 
     private fun showCrops() {
         val source = selected ?: return
-        results.removeAllViews()
+        clearResults()
         results.addView(TextView(this).apply {
             text = "Detected photos (${editor.boxes.size})"
             textSize = 22f
@@ -231,11 +237,13 @@ class MainActivity : Activity() {
         })
         editor.boxes.forEachIndexed { index, box ->
             results.addView(TextView(this).apply { text = "Photo ${index + 1}"; textSize = 17f })
+            val cropped = PhotoDetector.crop(source, box)
+            displayedCrops.add(cropped)
             results.addView(ImageView(this).apply {
-                setImageBitmap(PhotoDetector.crop(source, box))
+                setImageBitmap(cropped)
                 adjustViewBounds = true
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 20 }
+                layoutParams = LinearLayout.LayoutParams(-1, (240 * resources.displayMetrics.density).toInt()).apply { bottomMargin = 20 }
             })
         }
     }
@@ -252,9 +260,16 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     editor.photo = source
                     editor.setBoxes(boxes)
+                    // Always show a visible result, including when detection finds nothing.
+                    if (boxes.isEmpty()) {
+                        results.addView(TextView(this).apply {
+                            text = "No photos detected. Tap Add Crop Box, then Edit Crops to mark them manually."
+                            textSize = 16f
+                        })
+                    }
                     editor.visibility = View.VISIBLE
                     preview.visibility = View.GONE
-                    status.text = "Found ${boxes.size} photos. Tap Edit Crops to adjust boxes, then Save Crops."
+                    status.text = "Found ${boxes.size} photos. Review crops directly below the original image."
                 }
             } catch (e: Exception) {
                 runOnUiThread { status.text = "Detection failed: ${e.message}" }
