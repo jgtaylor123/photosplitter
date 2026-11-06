@@ -12,6 +12,8 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ImageView
+import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -20,6 +22,7 @@ import kotlin.math.max
 
 class MainActivity : Activity() {
     private lateinit var status: TextView
+    private lateinit var preview: ImageView
     private var selected: Bitmap? = null
     private var pendingCameraFile: File? = null
     private val requestPick = 100
@@ -56,6 +59,16 @@ class MainActivity : Activity() {
         layout.addView(camera)
         layout.addView(pick)
         layout.addView(split)
+        preview = ImageView(this).apply {
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            visibility = View.GONE
+            contentDescription = "Captured or selected photograph preview"
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 24
+            }
+        }
+        layout.addView(preview)
         setContentView(layout)
     }
 
@@ -118,6 +131,8 @@ class MainActivity : Activity() {
             }
             selected = if (!matrix.isIdentity) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true) else decoded
             if (selected !== decoded) decoded.recycle()
+            preview.setImageBitmap(selected)
+            preview.visibility = View.VISIBLE
             status.text = "Photo ready. Tap Detect, crop and save."
         } catch (e: Exception) {
             status.text = "Could not load photo: ${e.message}"
