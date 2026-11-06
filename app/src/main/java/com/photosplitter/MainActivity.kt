@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.content.ContentValues
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
@@ -36,14 +38,26 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingCameraFile = savedInstanceState?.getString("cameraPath")?.let(::File)
+        window.statusBarColor = Color.rgb(17, 24, 39)
+        window.navigationBarColor = Color.rgb(17, 24, 39)
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(40, 50, 40, 30)
+            setPadding(32, 44, 32, 44)
+            setBackgroundColor(Color.rgb(248, 251, 255))
         }
-        val title = TextView(this).apply { text = "PhotoSplitter"; textSize = 28f }
+        val title = TextView(this).apply {
+            text = "PhotoSplitter"
+            textSize = 30f
+            setTextColor(Color.rgb(17, 24, 39))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(8, 16, 8, 20)
+        }
         status = TextView(this).apply {
             text = "Arrange prints with gaps on a dark, plain background. Take a photo or select an existing image."
             textSize = 16f
+            setTextColor(Color.rgb(55, 65, 81))
+            setPadding(12, 16, 12, 24)
+            background = rounded(Color.WHITE, 16, Color.rgb(219, 234, 254))
         }
         val camera = Button(this).apply {
             text = "Take Photo"
@@ -59,6 +73,7 @@ class MainActivity : Activity() {
             text = "Detect Photos"
             setOnClickListener { process() }
         }
+        listOf(camera, pick, split).forEachIndexed { i, button -> styleButton(button, i == 0) }
         layout.addView(title)
         layout.addView(status)
         layout.addView(camera)
@@ -90,17 +105,43 @@ class MainActivity : Activity() {
                 editor.invalidate()
             }
         }
+        styleButton(edit)
         layout.addView(edit)
-        layout.addView(Button(this).apply { text = "Add Crop Box"; setOnClickListener { editor.addBox() } })
-        layout.addView(Button(this).apply { text = "Remove Selected Box"; setOnClickListener { editor.removeSelected() } })
+        layout.addView(Button(this).apply { text = "Add Crop Box"; setOnClickListener { editor.addBox() }; styleButton(this) })
+        layout.addView(Button(this).apply { text = "Remove Selected Box"; setOnClickListener { editor.removeSelected() }; styleButton(this) })
         saveButton = Button(this).apply {
             text = "Save Crops"
             setOnClickListener { saveCrops() }
         }
+        styleButton(saveButton, true)
         layout.addView(saveButton)
-        results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        results = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(8, 18, 8, 12) }
         layout.addView(results)
         setContentView(ScrollView(this).apply { addView(layout) })
+    }
+
+    private fun rounded(fill: Int, radius: Int, stroke: Int? = null): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(fill)
+            cornerRadius = radius * resources.displayMetrics.density
+            if (stroke != null) setStroke((resources.displayMetrics.density).toInt().coerceAtLeast(1), stroke)
+        }
+
+    private fun styleButton(button: Button, primary: Boolean = false) {
+        button.isAllCaps = false
+        button.textSize = 16f
+        button.setTypeface(null, android.graphics.Typeface.BOLD)
+        button.setTextColor(if (primary) Color.WHITE else Color.rgb(30, 58, 138))
+        button.background = rounded(
+            if (primary) Color.rgb(37, 99, 235) else Color.rgb(239, 246, 255),
+            12,
+            if (primary) null else Color.rgb(191, 219, 254)
+        )
+        button.setPadding(18, 12, 18, 12)
+        button.layoutParams = LinearLayout.LayoutParams(-1, (52 * resources.displayMetrics.density).toInt()).apply {
+            topMargin = (10 * resources.displayMetrics.density).toInt()
+        }
+        button.elevation = 3f * resources.displayMetrics.density
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -168,7 +209,7 @@ class MainActivity : Activity() {
             editor.visibility = View.GONE
             preview.setImageBitmap(selected)
             preview.visibility = View.VISIBLE
-            status.text = "Photo ready. Tap Detect, crop and save."
+            status.text = "Photo ready. Tap Detect Photos to preview the individual crops."
         } catch (e: Exception) {
             status.text = "Could not load photo: ${e.message}"
         }
