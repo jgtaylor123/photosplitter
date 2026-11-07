@@ -186,7 +186,22 @@ class MainActivity : Activity() {
         }
         styleButton(edit)
         cropControls.addView(edit)
-        cropControls.addView(Button(this).apply { text = "Add Crop Box"; setOnClickListener { editor.addBox() }; styleButton(this) })
+        cropControls.addView(Button(this).apply {
+            text = "Add Crop Box"
+            setOnClickListener {
+                if (selected == null) return@setOnClickListener
+                editor.addBox()
+                if (!editor.editing) {
+                    editor.editing = true
+                    editor.visibility = View.VISIBLE
+                    preview.visibility = View.GONE
+                    edit.text = "Finish Editing"
+                    scroll.post { scroll.scrollTo(0, camera.top) }
+                }
+                editor.invalidate()
+            }
+            styleButton(this)
+        })
         cropControls.addView(Button(this).apply { text = "Remove Selected Box"; setOnClickListener { editor.removeSelected() }; styleButton(this) })
         layout.addView(cropControls)
         results = LinearLayout(this).apply {
