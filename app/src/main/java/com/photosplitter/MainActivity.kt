@@ -288,7 +288,7 @@ class MainActivity : Activity() {
             setTextColor(Color.rgb(17, 24, 39))
         })
         root.addView(TextView(this).apply {
-            text = "Lay out up to around 30 printed photos on a flat, dark background. Leave a small gap between each print, and keep them as straight as possible."
+            text = "Lay out several printed photos on a flat, dark background, leaving a small gap between them. They don't need to be perfectly aligned. For best image quality, start with around 4–8 photos per shot; larger batches may work but capture less detail per photo."
             textSize = 15f
             setTextColor(Color.rgb(55, 65, 81))
             setPadding(0, pad / 2, 0, pad / 2)
