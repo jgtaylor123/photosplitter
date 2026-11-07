@@ -324,7 +324,7 @@ class MainActivity : Activity() {
             setPadding(0, padding, 0, padding / 3)
         })
         content.addView(TextView(this).apply {
-            text = "Completely optional. No Google account is needed to scan, label, or save photos locally on your phone.\\n\\nConnecting lets you upload your scanned pictures with titles, people's names and descriptions to your Google Photos collection.\\n\\nGoogle Photos search may not index these descriptions; we're still testing that."
+            text = "Completely optional. No Google account is needed to scan, label, or save photos locally on your phone.\n\nConnecting lets you upload your scanned pictures with titles, people's names and descriptions to your Google Photos collection.\n\nGoogle Photos search may not index these descriptions; we're still testing that."
             textSize = 16f
             setTextColor(Color.rgb(55, 65, 81))
             setPadding(0, 0, 0, padding / 2)
