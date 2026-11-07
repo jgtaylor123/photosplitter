@@ -127,6 +127,7 @@ class MainActivity : Activity() {
             minWidth = (44 * resources.displayMetrics.density).toInt()
             minimumWidth = minWidth
             isAllCaps = false
+            setBackgroundColor(Color.WHITE)
             setOnClickListener { batchField.setText("") }
         })
         layout.addView(batchRow)
@@ -498,14 +499,26 @@ class MainActivity : Activity() {
             remove()
             return
         }
+        val dp = resources.displayMetrics.density
+        val dialogContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((24 * dp).toInt(), (12 * dp).toInt(), (24 * dp).toInt(), (12 * dp).toInt())
+        }
+        dialogContent.addView(TextView(this).apply {
+            text = "This removes only the link from PhotoSplitter. Your scanned photos are NOT deleted and remain available in your photo library."
+            textSize = 16f
+            setTextColor(Color.rgb(40, 40, 40))
+            setPadding(0, (8 * dp).toInt(), 0, (22 * dp).toInt())
+        })
         val noRepeat = CheckBox(this).apply {
             text = "Don't show this dialog again"
-            setPadding(24, 12, 24, 12)
+            textSize = 15f
+            setPadding((8 * dp).toInt(), (8 * dp).toInt(), 0, (8 * dp).toInt())
         }
+        dialogContent.addView(noRepeat)
         AlertDialog.Builder(this)
             .setTitle("Remove saved batch link?")
-            .setMessage("This only removes the link from PhotoSplitter's saved batches list. Your scanned photos are not deleted and should still be available in your photo library app.")
-            .setView(noRepeat)
+            .setView(dialogContent)
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Remove link") { _, _ ->
                 if (noRepeat.isChecked) {
@@ -543,6 +556,7 @@ class MainActivity : Activity() {
             textSize = 22f
             contentDescription = "Remove ${item.optString("label")} from saved batches"
             minWidth = (44 * resources.displayMetrics.density).toInt()
+            setBackgroundColor(Color.WHITE)
             setOnClickListener { removeHistoryLink(index, onRemoved) }
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         return row
