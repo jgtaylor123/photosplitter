@@ -598,11 +598,20 @@ class MainActivity : Activity() {
             setPadding(24, 24, 24, 24)
             setBackgroundColor(Color.rgb(248, 251, 255))
         }
-        container.addView(Button(this).apply {
-            text = "← Back"
-            isAllCaps = false
+        container.addView(TextView(this).apply {
+            text = "←  Back"
+            textSize = 17f
+            setTextColor(Color.rgb(30, 64, 175))
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(12, 8, 12, 8)
+            contentDescription = "Back to PhotoSplitter"
+            isClickable = true
+            isFocusable = true
             setOnClickListener { dialog.dismiss() }
-        })
+        }, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            (48 * resources.displayMetrics.density).toInt()
+        ))
         container.addView(TextView(this).apply {
             text = "All saved batches"
             textSize = 24f
