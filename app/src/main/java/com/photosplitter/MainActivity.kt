@@ -456,7 +456,7 @@ class MainActivity : Activity() {
         if (items.isEmpty()) return
         AlertDialog.Builder(this)
             .setTitle("Upload to Google Photos?")
-            .setMessage("Your scans are saved on this device. Upload ${items.size} scans with their descriptions to Google Photos? This is optional.")
+            .setMessage("Your scans are saved on this device. Upload ${items.size} ${if (items.size == 1) "scan" else "scans"} with ${if (items.size == 1) "its description" else "their descriptions"} to Google Photos? This is optional.")
             .setNegativeButton("Not now", null)
             .setPositiveButton("Upload") { _, _ ->
                 pendingPhotos = items
