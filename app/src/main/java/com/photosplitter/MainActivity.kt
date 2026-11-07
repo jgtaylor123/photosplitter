@@ -141,12 +141,6 @@ class MainActivity : Activity() {
             onChanged = { showCrops() }
         }
         layout.addView(editor)
-        results = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(8, 18, 8, 12)
-        }
-        // Results must appear immediately after the source preview, before edit/save controls.
-        layout.addView(results)
         val edit = Button(this).apply {
             text = "Edit Crops"
             setOnClickListener {
@@ -162,6 +156,12 @@ class MainActivity : Activity() {
         layout.addView(edit)
         layout.addView(Button(this).apply { text = "Add Crop Box"; setOnClickListener { editor.addBox() }; styleButton(this) })
         layout.addView(Button(this).apply { text = "Remove Selected Box"; setOnClickListener { editor.removeSelected() }; styleButton(this) })
+        results = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 18, 8, 12)
+        }
+        // Keep crop controls next to the original image; previews follow below.
+        layout.addView(results)
         saveButton = Button(this).apply {
             text = "Save Crops"
             setOnClickListener { saveCrops() }
