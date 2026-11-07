@@ -37,6 +37,7 @@ class MainActivity : Activity() {
     private lateinit var preview: ImageView
     private lateinit var editor: CropEditor
     private lateinit var saveButton: Button
+    private lateinit var cropControls: LinearLayout
     private lateinit var scroll: ScrollView
     private var zoomDialog: android.app.Dialog? = null
     private lateinit var results: LinearLayout
@@ -141,6 +142,10 @@ class MainActivity : Activity() {
             onChanged = { showCrops() }
         }
         layout.addView(editor)
+        cropControls = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+        }
         val edit = Button(this).apply {
             text = "Edit Crops"
             setOnClickListener {
@@ -153,9 +158,10 @@ class MainActivity : Activity() {
             }
         }
         styleButton(edit)
-        layout.addView(edit)
-        layout.addView(Button(this).apply { text = "Add Crop Box"; setOnClickListener { editor.addBox() }; styleButton(this) })
-        layout.addView(Button(this).apply { text = "Remove Selected Box"; setOnClickListener { editor.removeSelected() }; styleButton(this) })
+        cropControls.addView(edit)
+        cropControls.addView(Button(this).apply { text = "Add Crop Box"; setOnClickListener { editor.addBox() }; styleButton(this) })
+        cropControls.addView(Button(this).apply { text = "Remove Selected Box"; setOnClickListener { editor.removeSelected() }; styleButton(this) })
+        layout.addView(cropControls)
         results = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(8, 18, 8, 12)
@@ -167,6 +173,7 @@ class MainActivity : Activity() {
             setOnClickListener { saveCrops() }
         }
         styleButton(saveButton, true)
+        saveButton.visibility = View.GONE
         layout.addView(saveButton)
         scroll = ScrollView(this).apply { addView(layout) }
         setContentView(scroll)
@@ -256,6 +263,8 @@ class MainActivity : Activity() {
             selected = if (!matrix.isIdentity) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true) else decoded
             if (selected !== decoded) decoded.recycle()
             clearResults()
+            cropControls.visibility = View.VISIBLE
+            saveButton.visibility = View.VISIBLE
             photoTitles.clear()
             photoPeople.clear()
             retakeButton.visibility = if (requestCode == requestCamera) View.VISIBLE else View.GONE
