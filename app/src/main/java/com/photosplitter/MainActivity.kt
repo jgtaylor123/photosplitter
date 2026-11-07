@@ -1,5 +1,9 @@
 package com.photosplitter
 
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.Scope
+import com.google.android.gms.auth.api.identity.AuthorizationResult
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
@@ -56,6 +60,10 @@ class MainActivity : Activity() {
     private val photoPeople = mutableListOf<String>()
     private var selected: Bitmap? = null
     private var pendingCameraFile: File? = null
+    private val photosScope = Scope("https://www.googleapis.com/auth/photoslibrary.appendonly")
+    private val requestPhotosAuthorization = 102
+    private var pendingPhotos: List<Pair<Uri, Pair<String, String>>> = emptyList()
+    private var photosConnected = false
     private val requestPick = 100
     private val requestCamera = 101
 
@@ -265,22 +273,85 @@ class MainActivity : Activity() {
     }
 
     private fun showGooglePhotosIntegration() {
-        val density = resources.displayMetrics.density
-        val content = TextView(this).apply {
-            text = "PhotoSplitter saves photos directly to your device. No account is required.\\n\\n" +
-                "Optionally connect Google Photos to experiment with adding descriptions to backed-up photos. " +
-                "We haven't confirmed that Google Photos will make these descriptions searchable.\\n\\n" +
-                "Google Photos sign-in isn't configured yet. Once the Google Cloud OAuth setup is ready, " +
-                "this menu will offer a Connect Google Photos button."
-            textSize = 16f
-            setTextColor(Color.rgb(17, 24, 39))
-            setPadding((24 * density).toInt(), (12 * density).toInt(),
-                (24 * density).toInt(), (12 * density).toInt())
-        }
         AlertDialog.Builder(this)
-            .setTitle("Google Photos integration")
-            .setView(content)
-            .setPositiveButton("Got it", null)
+            .setTitle("Google Photos (optional)")
+            .setMessage("PhotoSplitter works without a Google account. Connect only if you want to upload saved scans and their descriptions to Google Photos. Google Photos search indexing of descriptions is not guaranteed.\n\nUploads happen only when you explicitly choose them.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Connect Google Photos") { _, _ -> authorizePhotos() }
+            .show()
+    }
+
+    private fun authorizePhotos() {
+        val request = AuthorizationRequest.builder()
+            .setRequestedScopes(listOf(photosScope))
+            .build()
+        Identity.getAuthorizationClient(this).authorize(request)
+            .addOnSuccessListener { result ->
+                if (result.hasResolution()) {
+                    try {
+                        startIntentSenderForResult(
+                            result.pendingIntent!!.intentSender, requestPhotosAuthorization,
+                            null, 0, 0, 0
+                        )
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Google authorization: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    onPhotosAuthorized(result)
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Google Photos authorization failed: ${it.message}", Toast.LENGTH_LONG).show()
+            }
+    }
+
+    private fun onPhotosAuthorized(result: AuthorizationResult) {
+        val token = result.accessToken
+        if (token.isNullOrBlank()) {
+            Toast.makeText(this, "No Google Photos access token returned", Toast.LENGTH_LONG).show()
+            return
+        }
+        photosConnected = true
+        val items = pendingPhotos
+        pendingPhotos = emptyList()
+        if (items.isEmpty()) {
+            Toast.makeText(this, "Google Photos connected. Save a batch to upload it.", Toast.LENGTH_LONG).show()
+            return
+        }
+        status.text = "Uploading ${items.size} saved photos to Google Photos..."
+        Thread {
+            var uploaded = 0
+            var failure: String? = null
+            for ((uri, details) in items) {
+                try {
+                    GooglePhotosUploader.upload(contentResolver, uri, details.first, details.second, token)
+                    uploaded++
+                } catch (e: Exception) {
+                    failure = e.message ?: "Unknown upload error"
+                    break
+                }
+            }
+            runOnUiThread {
+                status.text = if (failure == null) {
+                    "Uploaded $uploaded photos to Google Photos."
+                } else {
+                    "Uploaded $uploaded of ${items.size}. Upload stopped: $failure"
+                }
+                Toast.makeText(this, status.text, Toast.LENGTH_LONG).show()
+            }
+        }.start()
+    }
+
+    private fun offerPhotosUpload(items: List<Pair<Uri, Pair<String, String>>>) {
+        if (items.isEmpty()) return
+        AlertDialog.Builder(this)
+            .setTitle("Upload to Google Photos?")
+            .setMessage("Your scans are saved on this device. Upload ${items.size} scans with their descriptions to Google Photos? This is optional.")
+            .setNegativeButton("Not now", null)
+            .setPositiveButton("Upload") { _, _ ->
+                pendingPhotos = items
+                authorizePhotos()
+            }
             .show()
     }
 
@@ -332,6 +403,18 @@ class MainActivity : Activity() {
     @Deprecated("Legacy activity result callback")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == requestPhotosAuthorization) {
+            if (resultCode == RESULT_OK && data != null) {
+                try {
+                    onPhotosAuthorized(Identity.getAuthorizationClient(this).getAuthorizationResultFromIntent(data))
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Google Photos authorization failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                pendingPhotos = emptyList()
+            }
+            return
+        }
         if (requestCode != requestPick && requestCode != requestCamera) return
         if (resultCode != RESULT_OK) {
             if (requestCode == requestCamera) pendingCameraFile?.delete()
@@ -752,6 +835,7 @@ class MainActivity : Activity() {
         Thread {
             var saved = 0
             var firstSavedUri = ""
+            val savedForUpload = mutableListOf<Pair<Uri, Pair<String, String>>>()
             try {
                 for ((index, box) in boxes.withIndex()) {
                     val crop = PhotoDetector.crop(source, box)
@@ -809,6 +893,7 @@ class MainActivity : Activity() {
                             contentResolver.delete(uri, null, null)
                             error("Could not write saved photo")
                         }
+                        savedForUpload.add(uri to (filename to description))
                         saved++
                         if (firstSavedUri.isBlank()) firstSavedUri = uri.toString()
                         if (description.isNotBlank()) {
@@ -833,6 +918,7 @@ class MainActivity : Activity() {
                         refreshHistory()
                     }
                     if (saved == boxes.size) resetAfterSave(nextBatchLabel(batchLabel))
+                    if (savedForUpload.isNotEmpty()) offerPhotosUpload(savedForUpload)
                     Toast.makeText(this, "Saved $saved of ${boxes.size} photos", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
