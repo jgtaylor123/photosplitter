@@ -282,13 +282,13 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.WHITE)
         }
         root.addView(TextView(this).apply {
-            text = "Scan a whole batch at once"
-            textSize = 23f
+            text = "Welcome to PhotoSplitter"
+            textSize = 22f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setTextColor(Color.rgb(17, 24, 39))
         })
         root.addView(TextView(this).apply {
-            text = "Lay out your printed photos on a flat, dark background with small gaps between them. They don't need to be perfectly straight.\n\nHow many photos at once? A higher-resolution camera can capture more prints while preserving detail. With a 12-megapixel camera, try 4–8 for better quality, or 16 if lower-resolution copies are fine. You can try larger batches too — the more photos in one shot, the less detail each individual photo will have."
+            text = "Take one photo of several printed pictures. PhotoSplitter separates them into individual images so you can label, save and optionally back them up to Google Photos.\n\nArrange the prints on a dark surface with small gaps. They don't have to be perfectly straight."
             textSize = 15f
             setTextColor(Color.rgb(55, 65, 81))
             setPadding(0, pad / 2, 0, pad / 2)
@@ -302,7 +302,7 @@ class MainActivity : Activity() {
             contentDescription = "Example: 16 vintage family and travel photographs laid out on a dark background, slightly crooked with gaps between prints"
         })
         root.addView(TextView(this).apply {
-            text = "Take ONE photo of the whole layout. PhotoSplitter detects and splits the prints into individual pictures. Review the crops, add titles and people's names, then save to your phone. You can also optionally upload to Google Photos."
+            text = "How many at once? It depends on your camera's resolution. Try 16, then experiment with larger or smaller batches to find the detail you want."
             textSize = 15f
             setTextColor(Color.rgb(55, 65, 81))
             setPadding(0, pad / 2, 0, pad / 2)
@@ -311,8 +311,13 @@ class MainActivity : Activity() {
             text = "Don't show this again"
             isChecked = getSharedPreferences("photo_settings", MODE_PRIVATE).getBoolean("skip_welcome", false)
         }
-        root.addView(neverAgain)
-        root.addView(Button(this).apply {
+        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, 0, pad, pad / 2)
+            setBackgroundColor(Color.WHITE)
+        }
+        footer.addView(neverAgain)
+        footer.addView(Button(this).apply {
             text = "Get started"
             styleButton(this, true)
             setOnClickListener {
@@ -322,7 +327,13 @@ class MainActivity : Activity() {
             }
         })
         val scroller = ScrollView(this).apply { addView(root) }
-        dialog.setContentView(scroller)
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
+            addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(footer, LinearLayout.LayoutParams(-1, -2))
+        }
+        dialog.setContentView(container)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.window?.setLayout((resources.displayMetrics.widthPixels * .94f).toInt(), -2)
         dialog.show()
