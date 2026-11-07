@@ -30,6 +30,7 @@ import android.widget.Toast
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.core.content.FileProvider
+import androidx.exifinterface.media.ExifInterface as AndroidXExif
 import java.io.File
 import kotlin.math.max
 
@@ -549,31 +550,55 @@ class MainActivity : Activity() {
                         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
                         put(MediaStore.Images.Media.RELATIVE_PATH, relativePath + "/")
                     }
-                    val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                    if (uri != null) {
-                        contentResolver.openOutputStream(uri)?.use {
-                            if (captioned.compress(Bitmap.CompressFormat.JPEG, 95, it)) {
-                                saved++
-                                if (firstSavedUri.isBlank()) firstSavedUri = uri.toString()
+                    val title = titles.getOrNull(index).orEmpty().trim()
+                    val names = people.getOrNull(index).orEmpty().trim()
+                    val description = listOfNotNull(
+                        batchLabel.takeIf { it.isNotBlank() }?.let { "Batch: $it" },
+                        title.takeIf { it.isNotBlank() }?.let { "Title: $it" },
+                        names.takeIf { it.isNotBlank() }?.let { "People: $it" }
+                    ).joinToString("; ")
+                    // Encode EXIF into the JPEG itself, not only the gallery database.
+                    val temp = File.createTempFile("photosplitter_exif_", ".jpg", cacheDir)
+                    try {
+                        temp.outputStream().use { output ->
+                            if (!captioned.compress(Bitmap.CompressFormat.JPEG, 95, output)) {
+                                error("Could not encode JPEG")
                             }
                         }
-                        // Keep searchable descriptions in the MediaStore database.
-                        val title = titles.getOrNull(index).orEmpty().trim()
-                        val names = people.getOrNull(index).orEmpty().trim()
-                        val description = listOfNotNull(
-                            batchLabel.takeIf { it.isNotBlank() }?.let { "Batch: $it" },
-                            title.takeIf { it.isNotBlank() }?.let { "Title: $it" },
-                            names.takeIf { it.isNotBlank() }?.let { "People: $it" }
-                        ).joinToString("; ")
+                        if (title.isNotBlank() || description.isNotBlank()) {
+                            AndroidXExif(temp.absolutePath).apply {
+                                if (title.isNotBlank()) {
+                                    setAttribute(AndroidXExif.TAG_IMAGE_DESCRIPTION, title)
+                                }
+                                if (description.isNotBlank()) {
+                                    setAttribute(AndroidXExif.TAG_USER_COMMENT, description)
+                                }
+                                saveAttributes()
+                            }
+                        }
+                        val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                            ?: error("Could not create saved photo")
+                        val written = contentResolver.openOutputStream(uri)?.use { output ->
+                            temp.inputStream().use { input -> input.copyTo(output) }
+                            true
+                        } ?: false
+                        if (!written) {
+                            contentResolver.delete(uri, null, null)
+                            error("Could not write saved photo")
+                        }
+                        saved++
+                        if (firstSavedUri.isBlank()) firstSavedUri = uri.toString()
                         if (description.isNotBlank()) {
                             try {
                                 contentResolver.update(uri, ContentValues().apply {
                                     put(MediaStore.Images.Media.DESCRIPTION, description)
                                 }, null, null)
                             } catch (_: Exception) {
-                                // Some Android gallery providers do not support descriptions.
+                                // Gallery providers may not expose this optional field.
                             }
                         }
+                    } finally {
+                        temp.delete()
                     }
                     if (captioned !== crop) captioned.recycle()
                     crop.recycle()
