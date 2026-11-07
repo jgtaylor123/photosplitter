@@ -267,6 +267,91 @@ class MainActivity : Activity() {
                 if (editor.editing) false else super.onTouchEvent(ev)
         }.apply { addView(layout) }
         setContentView(scroll)
+        if (!prefs.getBoolean("skip_welcome", false) && savedInstanceState == null) {
+            scroll.post { showWelcomeGuide() }
+        }
+    }
+
+    private fun showWelcomeGuide() {
+        val density = resources.displayMetrics.density
+        val pad = (20 * density).toInt()
+        val dialog = Dialog(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+            setBackgroundColor(Color.WHITE)
+        }
+        root.addView(TextView(this).apply {
+            text = "Scan a whole batch at once"
+            textSize = 23f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(Color.rgb(17, 24, 39))
+        })
+        root.addView(TextView(this).apply {
+            text = "Lay out up to around 30 printed photos on a flat, dark background. Leave a small gap between each print, and keep them as straight as possible."
+            textSize = 15f
+            setTextColor(Color.rgb(55, 65, 81))
+            setPadding(0, pad / 2, 0, pad / 2)
+        })
+        // Schematic arrangement: thirty separate prints with visible dark gaps.
+        root.addView(object : View(this) {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val w = View.MeasureSpec.getSize(widthMeasureSpec)
+                setMeasuredDimension(w, (w * 0.69f).toInt())
+            }
+            override fun onDraw(canvas: Canvas) {
+                val w = width.toFloat()
+                val h = height.toFloat()
+                canvas.drawColor(Color.rgb(25, 32, 45))
+                val gap = w * 0.022f
+                val cellW = (w - 7 * gap) / 6f
+                val cellH = (h - 6 * gap) / 5f
+                val shades = intArrayOf(0xffd9c6a5.toInt(), 0xffb7c9d8.toInt(),
+                    0xffe2b7a4.toInt(), 0xffc6c2a6.toInt(), 0xffd0b7cf.toInt())
+                for (row in 0 until 5) for (col in 0 until 6) {
+                    val left = gap + col * (cellW + gap)
+                    val top = gap + row * (cellH + gap)
+                    paint.color = Color.WHITE
+                    canvas.drawRoundRect(left, top, left + cellW, top + cellH, 2f, 2f, paint)
+                    paint.color = shades[(row * 3 + col) % shades.size]
+                    canvas.drawRect(left + 3f, top + 3f, left + cellW - 3f, top + cellH - 3f, paint)
+                    paint.color = 0x66807560
+                    canvas.drawCircle(left + cellW * .48f, top + cellH * .36f, cellW * .14f, paint)
+                    canvas.drawOval(left + cellW * .22f, top + cellH * .55f,
+                        left + cellW * .78f, top + cellH * .88f, paint)
+                }
+            }
+        }.apply {
+            contentDescription = "Example: 30 separate printed photos arranged in five rows of six on a dark surface, with gaps between them"
+        })
+        root.addView(TextView(this).apply {
+            text = "Take ONE photo of the whole layout. PhotoSplitter detects and splits the prints into individual pictures. Review the crops, add titles and people's names, then save to your phone. You can also optionally upload to Google Photos."
+            textSize = 15f
+            setTextColor(Color.rgb(55, 65, 81))
+            setPadding(0, pad / 2, 0, pad / 2)
+        })
+        val neverAgain = CheckBox(this).apply {
+            text = "Don't show this again"
+            isChecked = getSharedPreferences("photo_settings", MODE_PRIVATE).getBoolean("skip_welcome", false)
+        }
+        root.addView(neverAgain)
+        root.addView(Button(this).apply {
+            text = "Get started"
+            styleButton(this, true)
+            setOnClickListener {
+                getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
+                    .putBoolean("skip_welcome", neverAgain.isChecked).apply()
+                dialog.dismiss()
+            }
+        })
+        val scroller = ScrollView(this).apply { addView(root) }
+        dialog.setContentView(scroller)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * .94f).toInt(), -2)
+        dialog.show()
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * .94f).toInt(),
+            (resources.displayMetrics.heightPixels * .88f).toInt())
     }
 
     private fun themedDialog(title: String, message: String, actionLabel: String, onAction: () -> Unit) {
@@ -1085,4 +1170,11 @@ class MainActivity : Activity() {
             }
         }.start()
     }
-}
+}        content.addView(TextView(this).apply {
+            text = "How to use PhotoSplitter  ⓘ"
+            textSize = 17f
+            setTextColor(Color.rgb(30, 58, 138))
+            setPadding(0, padding / 2, 0, padding / 2)
+            setOnClickListener { dialog.dismiss(); showWelcomeGuide() }
+        })
+
