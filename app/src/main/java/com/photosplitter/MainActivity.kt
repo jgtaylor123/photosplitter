@@ -303,19 +303,49 @@ class MainActivity : Activity() {
     }
 
     private fun showAppMenu() {
-        themedDialog(
-            "PhotoSplitter menu",
-            "Optional integrations and settings",
-            "Google Photos integration"
-        ) { showGooglePhotosIntegration() }
-    }
-
-    private fun showGooglePhotosIntegration() {
-        themedDialog(
-            "Google Photos (optional)",
-            "PhotoSplitter works without a Google account. Connect only if you want to upload saved scans and their descriptions to Google Photos. Google Photos search indexing of descriptions is not guaranteed.\\n\\nUploads happen only when you explicitly choose them.",
-            "Connect Google Photos"
-        ) { authorizePhotos() }
+        val padding = (20 * resources.displayMetrics.density).toInt()
+        val dialog = Dialog(this)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, padding, padding, padding)
+            setBackgroundColor(Color.WHITE)
+        }
+        content.addView(TextView(this).apply {
+            text = "PhotoSplitter menu"
+            textSize = 22f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(Color.rgb(17, 24, 39))
+        })
+        content.addView(TextView(this).apply {
+            text = "Google Photos integration  ⓘ"
+            textSize = 18f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(Color.rgb(30, 58, 138))
+            setPadding(0, padding, 0, padding / 3)
+        })
+        content.addView(TextView(this).apply {
+            text = "Completely optional. No Google account is needed to scan, label, or save photos locally on your phone.\\n\\nConnecting lets you upload your scanned pictures with titles, people's names and descriptions to your Google Photos collection.\\n\\nGoogle Photos search may not index these descriptions; we're still testing that."
+            textSize = 16f
+            setTextColor(Color.rgb(55, 65, 81))
+            setPadding(0, 0, 0, padding / 2)
+        })
+        content.addView(Button(this).apply {
+            text = "Connect Google Photos"
+            styleButton(this, true)
+            setOnClickListener { dialog.dismiss(); authorizePhotos() }
+        })
+        content.addView(Button(this).apply {
+            text = "Continue without Google"
+            styleButton(this)
+            setOnClickListener { dialog.dismiss() }
+        })
+        dialog.setContentView(content)
+        dialog.window?.setBackgroundDrawable(rounded(Color.WHITE, 16))
+        dialog.show()
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.9f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
     }
 
     private fun authorizePhotos() {
