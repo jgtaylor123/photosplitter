@@ -534,7 +534,7 @@ class MainActivity : Activity() {
         }
         row.addView(Button(this).apply {
             isAllCaps = false
-            text = "${item.optString("label")} · ${item.optInt("count")} photos\\n${item.optString("path")}"
+            text = "${item.optString("label")} · ${item.optInt("count")} photos\n${item.optString("path")}"
             setOnClickListener { openSavedBatch(item) }
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(Button(this).apply {
