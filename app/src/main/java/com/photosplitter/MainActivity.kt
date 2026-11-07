@@ -167,7 +167,7 @@ class MainActivity : Activity() {
                 editor.editing = !editor.editing
                 if (editor.editing) {
                     // Place the original photograph at the top and lock scrolling during edits.
-                    scroll.scrollTo(0, editor.top)
+                    scroll.post { scroll.scrollTo(0, camera.top) }
                 }
                 editor.visibility = View.VISIBLE
                 preview.visibility = View.GONE
