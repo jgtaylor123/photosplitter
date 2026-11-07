@@ -467,7 +467,7 @@ class MainActivity : Activity() {
             val uri = item.optString("uri")
             historyList.addView(Button(this).apply {
                 isAllCaps = false
-                text = "${item.optString("label")} · ${item.optInt("count")} photos\\n${item.optString("path")}"
+                text = "${item.optString("label")} · ${item.optInt("count")} photos\n${item.optString("path")}"
                 setOnClickListener {
                     try {
                         startActivity(Intent(Intent.ACTION_VIEW).apply {
