@@ -786,6 +786,7 @@ class MainActivity : Activity() {
             historyList.addView(Button(this).apply {
                 text = "Show more · All ${history.length()} batches"
                 isAllCaps = false
+                styleButton(this)
                 setOnClickListener { showOlderBatches() }
             })
         }
