@@ -115,16 +115,7 @@ class MainActivity : Activity() {
             contentDescription = "Open menu"
             isClickable = true
             isFocusable = true
-            setOnClickListener { anchor ->
-                PopupMenu(this@MainActivity, anchor).apply {
-                    menu.add("Google Photos integration")
-                    setOnMenuItemClickListener {
-                        showGooglePhotosIntegration()
-                        true
-                    }
-                    show()
-                }
-            }
+            setOnClickListener { showAppMenu() }
         }
         header.addView(menuButton, LinearLayout.LayoutParams(
             (48 * resources.displayMetrics.density).toInt(),
@@ -272,13 +263,59 @@ class MainActivity : Activity() {
         setContentView(scroll)
     }
 
+    private fun themedDialog(title: String, message: String, actionLabel: String, onAction: () -> Unit) {
+        val padding = (20 * resources.displayMetrics.density).toInt()
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, padding, padding, padding)
+            setBackgroundColor(Color.WHITE)
+        }
+        content.addView(TextView(this).apply {
+            text = title
+            textSize = 22f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(Color.rgb(17, 24, 39))
+        })
+        content.addView(TextView(this).apply {
+            text = message
+            textSize = 16f
+            setTextColor(Color.rgb(55, 65, 81))
+            setPadding(0, padding / 2, 0, padding / 2)
+        })
+        val dialog = Dialog(this)
+        content.addView(Button(this).apply {
+            text = actionLabel
+            styleButton(this, true)
+            setOnClickListener { dialog.dismiss(); onAction() }
+        })
+        content.addView(Button(this).apply {
+            text = "Cancel"
+            styleButton(this)
+            setOnClickListener { dialog.dismiss() }
+        })
+        dialog.setContentView(content)
+        dialog.window?.setBackgroundDrawable(rounded(Color.WHITE, 16))
+        dialog.show()
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.9f).toInt(),
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    private fun showAppMenu() {
+        themedDialog(
+            "PhotoSplitter menu",
+            "Optional integrations and settings",
+            "Google Photos integration"
+        ) { showGooglePhotosIntegration() }
+    }
+
     private fun showGooglePhotosIntegration() {
-        AlertDialog.Builder(this)
-            .setTitle("Google Photos (optional)")
-            .setMessage("PhotoSplitter works without a Google account. Connect only if you want to upload saved scans and their descriptions to Google Photos. Google Photos search indexing of descriptions is not guaranteed.\n\nUploads happen only when you explicitly choose them.")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Connect Google Photos") { _, _ -> authorizePhotos() }
-            .show()
+        themedDialog(
+            "Google Photos (optional)",
+            "PhotoSplitter works without a Google account. Connect only if you want to upload saved scans and their descriptions to Google Photos. Google Photos search indexing of descriptions is not guaranteed.\\n\\nUploads happen only when you explicitly choose them.",
+            "Connect Google Photos"
+        ) { authorizePhotos() }
     }
 
     private fun authorizePhotos() {
