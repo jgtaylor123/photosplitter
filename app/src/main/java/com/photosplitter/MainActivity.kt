@@ -1,5 +1,6 @@
 package com.photosplitter
 
+import com.google.android.gms.auth.api.identity.RevokeAccessRequest
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
@@ -355,7 +356,7 @@ class MainActivity : Activity() {
             .setMessage("PhotoSplitter will lose permission to upload to Google Photos. Photos already saved locally or uploaded to Google Photos will remain untouched.")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Disconnect") { _, _ ->
-                Identity.getAuthorizationClient(this).revokeAccess()
+                Identity.getAuthorizationClient(this).revokeAccess(\n                    RevokeAccessRequest.builder().setScopes(listOf(photosScope)).build()\n                )
                     .addOnSuccessListener {
                         photosConnected = false
                         pendingPhotos = emptyList()
