@@ -132,30 +132,37 @@ private class ZoomImageView(context: Context, bitmap: Bitmap) : ImageView(contex
 
 fun showZoomPhoto(context: Context, bitmap: Bitmap, title: String): Dialog {
     val dialog = Dialog(context, android.R.style.Theme_Material_NoActionBar_Fullscreen)
-    val container = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
+    val density = context.resources.displayMetrics.density
+    val container = FrameLayout(context).apply {
         setBackgroundColor(Color.BLACK)
     }
-    val header = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding(16, 8, 16, 8)
-    }
-    val heading = TextView(context).apply {
-        text = title
-        textSize = 18f
+    container.addView(ZoomImageView(context, bitmap),
+        FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+
+    // Overlay controls on the image instead of reserving a header row.
+    val close = TextView(context).apply {
+        text = "×"
+        textSize = 28f
+        gravity = Gravity.CENTER
         setTextColor(Color.WHITE)
-        maxLines = 2
-    }
-    header.addView(heading, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-    val close = Button(context).apply {
-        text = "Close"
+        setBackgroundResource(android.R.drawable.presence_offline)
+        background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(Color.argb(205, 24, 29, 36))
+            setStroke((1 * density).toInt().coerceAtLeast(1), Color.argb(130, 255, 255, 255))
+        }
+        contentDescription = "Close enlarged photo"
+        isClickable = true
+        isFocusable = true
         setOnClickListener { dialog.dismiss() }
     }
-    header.addView(close)
-    container.addView(header)
-    container.addView(ZoomImageView(context, bitmap),
-        LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+    container.addView(close, FrameLayout.LayoutParams(
+        (48 * density).toInt(), (48 * density).toInt(),
+        Gravity.TOP or Gravity.END
+    ).apply {
+        topMargin = (20 * density).toInt()
+        marginEnd = (20 * density).toInt()
+    })
     dialog.setContentView(container)
     dialog.show()
     return dialog
