@@ -71,6 +71,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         pendingCameraFile = savedInstanceState?.getString("cameraPath")?.let(::File)
         photosConnected = getSharedPreferences("photo_settings", MODE_PRIVATE).getBoolean("google_photos_connected", false)
+        refreshPhotosConnectionSilently()
         window.statusBarColor = Color.rgb(17, 24, 39)
         window.navigationBarColor = Color.rgb(17, 24, 39)
         val layout = LinearLayout(this).apply {
@@ -303,6 +304,28 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun refreshPhotosConnectionSilently() {
+        val prefs = getSharedPreferences("photo_settings", MODE_PRIVATE)
+        if (prefs.getBoolean("google_photos_disconnected_by_user", false)) return
+        val request = AuthorizationRequest.builder()
+            .setRequestedScopes(listOf(photosScope))
+            .build()
+        Identity.getAuthorizationClient(this).authorize(request)
+            .addOnSuccessListener { result ->
+                // Never launch a consent screen during an automatic status check.
+                if (!result.hasResolution() && !result.accessToken.isNullOrBlank()) {
+                    photosConnected = true
+                    prefs.edit().putBoolean("google_photos_connected", true).apply()
+                } else {
+                    photosConnected = false
+                    prefs.edit().putBoolean("google_photos_connected", false).apply()
+                }
+            }
+            .addOnFailureListener {
+                // A transient Google Play Services failure is not proof of disconnection.
+            }
+    }
+
     private fun showAppMenu() {
         val padding = (20 * resources.displayMetrics.density).toInt()
         val dialog = Dialog(this)
@@ -358,7 +381,8 @@ class MainActivity : Activity() {
                 photosConnected = false
                 pendingPhotos = emptyList()
                 getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
-                    .putBoolean("google_photos_connected", false).apply()
+                    .putBoolean("google_photos_connected", false)
+                    .putBoolean("google_photos_disconnected_by_user", true).apply()
                 Toast.makeText(this, "Google Photos disconnected in PhotoSplitter", Toast.LENGTH_LONG).show()
             }
             .show()
@@ -396,7 +420,8 @@ class MainActivity : Activity() {
         }
         photosConnected = true
         getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
-            .putBoolean("google_photos_connected", true).apply()
+            .putBoolean("google_photos_connected", true)
+            .putBoolean("google_photos_disconnected_by_user", false).apply()
         val items = pendingPhotos
         pendingPhotos = emptyList()
         if (items.isEmpty()) {
