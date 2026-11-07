@@ -748,7 +748,7 @@ class MainActivity : Activity() {
                             temp, title, names, batchLabel,
                             // Experimental keyword appears ONLY in XMP, not visible caption,
                             // filename, EXIF, or MediaStore. First crop of each save only.
-                            if (index == 0) "PSMETA7426" else ""
+                            if (index == 0) "PSHIDDEN9184" else ""
                         )
                         val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                             ?: error("Could not create saved photo")
