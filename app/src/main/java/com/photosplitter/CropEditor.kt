@@ -105,6 +105,8 @@ class CropEditor(context:Context):View(context) {
         val radius=28*density*bmp.width/width
         when(event.actionMasked){
             MotionEvent.ACTION_DOWN->{
+                // Keep the gesture in this view even when the finger crosses another box.
+                parent?.requestDisallowInterceptTouchEvent(true)
                 active=-1;mode=-1;cornerDragging=false
                 for(i in boxes.indices.reversed()){
                     val pts=boxes[i].points
@@ -129,6 +131,7 @@ class CropEditor(context:Context):View(context) {
                 prevX=x;prevY=y;invalidate();return true
             }
             MotionEvent.ACTION_UP->{
+                parent?.requestDisallowInterceptTouchEvent(false)
                 cornerDragging=false
                 invalidate()
                 onChanged?.invoke()
@@ -136,6 +139,7 @@ class CropEditor(context:Context):View(context) {
                 return true
             }
             MotionEvent.ACTION_CANCEL->{
+                parent?.requestDisallowInterceptTouchEvent(false)
                 cornerDragging=false
                 invalidate()
                 return true
