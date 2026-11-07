@@ -326,7 +326,7 @@ class MainActivity : Activity() {
             contentDescription = "Example: 16 vintage family and travel photographs laid out on a dark background, slightly crooked with gaps between prints"
         })
         root.addView(TextView(this).apply {
-            text = "Lay prints on a dark surface with small gaps; slight angles are fine.\\n\\nThe number you can capture depends on your camera's resolution. I've found 16 works well, but experiment with batch sizes to balance speed and detail."
+            text = "Lay prints on a dark surface with small gaps; slight angles are fine.\n\nThe number you can capture depends on your camera's resolution. I've found 16 works well, but experiment with batch sizes to balance speed and detail."
             textSize = 15f
             setTextColor(Color.rgb(63, 67, 64))
             setPadding(0, pad / 2, 0, pad / 2)
