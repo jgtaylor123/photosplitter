@@ -545,8 +545,13 @@ class MainActivity : Activity() {
                 for ((index, box) in boxes.withIndex()) {
                     val crop = PhotoDetector.crop(source, box)
                     val captioned = withCaption(crop, titles.getOrNull(index).orEmpty().trim())
+                    val filenameTitle = titles.getOrNull(index).orEmpty().trim()
+                        .replace(Regex("[^\\p{L}\\p{N}._ -]"), "")
+                        .trim().replace(Regex("\\s+"), "_")
+                        .take(60).ifBlank { "PhotoSplitter" }
+                    val filename = "${filenameTitle}_${System.currentTimeMillis()}_${index + 1}.jpg"
                     val values = ContentValues().apply {
-                        put(MediaStore.Images.Media.DISPLAY_NAME, "PhotoSplitter_${System.currentTimeMillis()}_${index}.jpg")
+                        put(MediaStore.Images.Media.DISPLAY_NAME, filename)
                         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
                         put(MediaStore.Images.Media.RELATIVE_PATH, relativePath + "/")
                     }
