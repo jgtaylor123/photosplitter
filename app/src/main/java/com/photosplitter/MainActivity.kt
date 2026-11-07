@@ -283,7 +283,7 @@ class MainActivity : Activity() {
         val dialog = Dialog(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
+            setPadding(pad, pad / 2, pad, pad / 2)
             setBackgroundColor(Color.WHITE)
         }
         val brand = LinearLayout(this).apply {
@@ -293,25 +293,26 @@ class MainActivity : Activity() {
         brand.addView(ImageView(this).apply {
             setImageResource(com.photosplitter.R.drawable.photosplitter_icon)
             contentDescription = "Vintage photographs"
-        }, LinearLayout.LayoutParams((62 * density).toInt(), (62 * density).toInt()))
+        }, LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()))
         brand.addView(TextView(this).apply {
             text = "PhotoSplitter"
-            textSize = 29f
+            textSize = 26f
             setTextColor(Color.rgb(7, 59, 76))
             typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.BOLD)
         })
         root.addView(brand)
         root.addView(TextView(this).apply {
-            text = "Welcome to PhotoSplitter"
-            textSize = 22f
+            text = "One shot. Every photo."
+            textSize = 20f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setTextColor(Color.rgb(17, 24, 39))
+            setPadding(0, pad / 3, 0, 0)
         })
         root.addView(TextView(this).apply {
-            text = "Take one photo of several printed pictures. PhotoSplitter separates them into individual images so you can label, save and optionally back them up to Google Photos.\n\nArrange the prints on a dark surface with small gaps. They don't have to be perfectly straight."
+            text = "Photograph several printed pictures at once. We'll split them into individual photos you can label and save to your phone or Google Photos."
             textSize = 15f
             setTextColor(Color.rgb(55, 65, 81))
-            setPadding(0, pad / 2, 0, pad / 2)
+            setPadding(0, pad / 3, 0, pad / 3)
         })
         // A real-life example of 16 slightly misaligned vintage prints on a dark surface.
         val exampleBytes = android.util.Base64.decode("/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAEMuMjoyKkM6NjpLR0NPZKZsZFxcZMySmnmm8dT++u3U6eX//////////+Xp////////////////////////////2wBDAUdLS2RXZMRsbMT//+n/////////////////////////////////////////////////////////////////////wAARCAC8APADASIAAhEBAxEB/8QAGQAAAwEBAQAAAAAAAAAAAAAAAgMEAQAF/8QANhAAAgECBAQEBAYBBAMAAAAAAQIAAxEEEiExE0FRgRRhcZEiMkJSIyQzQ2KhggVykrHB0fH/xAAWAQEBAQAAAAAAAAAAAAAAAAAAAQL/xAAYEQEBAQEBAAAAAAAAAAAAAAAAEQEhMf/aAAwDAQACEQMRAD8AOvjcjlaYBtuTFeOq9F9pMd4QRzspPaA/x1XovtO8dV6L7RQoVT9BhDC1T9IHqYB+Oq9F9p3jqvRfaD4VuboO87gUx81de0AvHVei+07x1XovtMFGhlvxCQOkGvTRKasl9TbWKD8dV6L7TvHVei+0llaYamUUksCReBnjqvRfad46r0X2hHCJyc+0w4Mcqn9QM8fV6L7TvH1ei+0w4NuTrMODqcip7wC8fV6L7TvH1ei+0WcLVH0g94t6bUzZxa8B/j6vRfad4+t0X2mHDIoGera4vtOFHD86pPoIG+PrdF9p3j63Rfadkww+pzNy4YD5XPeBnj63Rfad4+r0X2nA4flSPcw6fCqMVFIDTeSgPH1ei+07x9bovtJZbTwtNqSsSwJF9JQHj6vRfad4+r0X2hnBJyc+0E4HpUHcQM8fV6J7TvH1ui+044J+TKYJwdYcge8AvH1eie0JP9QcH41BHlEnDVh9B94tkZDZgQfOBxlNSq6UaRU2BGsmMebNhEJNrNaTQtq9Qj5295nEYnViR6xgogrfTygiiBTzE87QrVp3VWBN2gVEyaX1liimlgL6c4qsmcm1r3EBCEkga7bdY6qc+EvYCzTKL01uHFiIbOKmHq25WMCSemB8KjoBPMG8uqVGWpYdJUNtOtFCsekLjQDtMtB46jeCcQOQ/uAyxk2N+ZB5QjiDytAxZvVH+2BuI1Wmf4RI3jqutCkf42k5MiqKgUKAABby1h01FlBNwdCDEmpxFUMbEaXliU1UCwgS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", android.util.Base64.DEFAULT)
@@ -322,7 +323,7 @@ class MainActivity : Activity() {
             contentDescription = "Example: 16 vintage family and travel photographs laid out on a dark background, slightly crooked with gaps between prints"
         })
         root.addView(TextView(this).apply {
-            text = "How many at once? It depends on your camera's resolution. Try 16, then experiment with larger or smaller batches to find the detail you want."
+            text = "Place prints on a dark surface with small gaps; slight angles are fine. Try 16 at once, then adjust for your camera's resolution."
             textSize = 15f
             setTextColor(Color.rgb(55, 65, 81))
             setPadding(0, pad / 2, 0, pad / 2)
