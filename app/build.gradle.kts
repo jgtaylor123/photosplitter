@@ -34,4 +34,5 @@ android {
 }
 dependencies {
     implementation("androidx.core:core:1.15.0")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }
