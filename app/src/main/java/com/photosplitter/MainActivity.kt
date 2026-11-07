@@ -643,7 +643,7 @@ class MainActivity : Activity() {
         }
         if (history.length() > 5) {
             historyList.addView(Button(this).apply {
-                text = "Show more · All ${history.length} batches"
+                text = "Show more · All ${history.length()} batches"
                 isAllCaps = false
                 setOnClickListener { showOlderBatches() }
             })
