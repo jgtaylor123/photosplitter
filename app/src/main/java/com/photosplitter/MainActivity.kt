@@ -70,6 +70,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingCameraFile = savedInstanceState?.getString("cameraPath")?.let(::File)
+        photosConnected = getSharedPreferences("photo_settings", MODE_PRIVATE).getBoolean("google_photos_connected", false)
         window.statusBarColor = Color.rgb(17, 24, 39)
         window.navigationBarColor = Color.rgb(17, 24, 39)
         val layout = LinearLayout(this).apply {
@@ -317,7 +318,7 @@ class MainActivity : Activity() {
             setTextColor(Color.rgb(17, 24, 39))
         })
         content.addView(TextView(this).apply {
-            text = "Google Photos integration  ⓘ"
+            text = if (photosConnected) "Google Photos — Connected  ✓" else "Google Photos integration  ⓘ"
             textSize = 18f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setTextColor(Color.rgb(30, 58, 138))
@@ -330,12 +331,12 @@ class MainActivity : Activity() {
             setPadding(0, 0, 0, padding / 2)
         })
         content.addView(Button(this).apply {
-            text = "Connect Google Photos"
-            styleButton(this, true)
-            setOnClickListener { dialog.dismiss(); authorizePhotos() }
+            text = if (photosConnected) "Disconnect Google Photos" else "Connect Google Photos"
+            styleButton(this, !photosConnected)
+            setOnClickListener { dialog.dismiss(); if (photosConnected) disconnectPhotos() else authorizePhotos() }
         })
         content.addView(Button(this).apply {
-            text = "Continue without Google"
+            text = if (photosConnected) "Done" else "Continue without Google"
             styleButton(this)
             setOnClickListener { dialog.dismiss() }
         })
@@ -346,6 +347,27 @@ class MainActivity : Activity() {
             (resources.displayMetrics.widthPixels * 0.9f).toInt(),
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
+    }
+
+    private fun disconnectPhotos() {
+        AlertDialog.Builder(this)
+            .setTitle("Disconnect Google Photos?")
+            .setMessage("PhotoSplitter will lose permission to upload to Google Photos. Photos already saved locally or uploaded to Google Photos will remain untouched.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Disconnect") { _, _ ->
+                Identity.getAuthorizationClient(this).revokeAccess()
+                    .addOnSuccessListener {
+                        photosConnected = false
+                        pendingPhotos = emptyList()
+                        getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
+                            .putBoolean("google_photos_connected", false).apply()
+                        Toast.makeText(this, "Google Photos disconnected", Toast.LENGTH_LONG).show()
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(this, "Could not disconnect: ${it.message}", Toast.LENGTH_LONG).show()
+                    }
+            }
+            .show()
     }
 
     private fun authorizePhotos() {
@@ -379,6 +401,8 @@ class MainActivity : Activity() {
             return
         }
         photosConnected = true
+        getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
+            .putBoolean("google_photos_connected", true).apply()
         val items = pendingPhotos
         pendingPhotos = emptyList()
         if (items.isEmpty()) {
