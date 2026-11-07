@@ -1,6 +1,8 @@
 package com.photosplitter
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Intent
 import android.content.ContentValues
 import android.graphics.Bitmap
@@ -465,34 +467,142 @@ class MainActivity : Activity() {
             put("count", count)
             put("savedAt", System.currentTimeMillis())
         })
-        for (i in 0 until minOf(previous.length(), 29)) history.put(previous.get(i))
+        for (i in 0 until previous.length()) history.put(previous.get(i))
         prefs.edit().putString("saved_batches", history.toString()).apply()
+    }
+
+    private fun savedBatchHistory(): JSONArray {
+        val value = getSharedPreferences("photo_settings", MODE_PRIVATE)
+            .getString("saved_batches", "[]")
+        return try { JSONArray(value) } catch (_: Exception) { JSONArray() }
+    }
+
+    private fun currentVersionCode(): Long =
+        packageManager.getPackageInfo(packageName, 0).longVersionCode
+
+    private fun removeHistoryLink(index: Int, onRemoved: () -> Unit) {
+        val prefs = getSharedPreferences("photo_settings", MODE_PRIVATE)
+        val history = savedBatchHistory()
+        if (index !in 0 until history.length()) return
+        val remove = {
+            val remaining = JSONArray()
+            for (i in 0 until history.length()) {
+                if (i != index) remaining.put(history.get(i))
+            }
+            prefs.edit().putString("saved_batches", remaining.toString()).apply()
+            refreshHistory()
+            onRemoved()
+        }
+        val version = currentVersionCode()
+        if (prefs.getLong("skip_history_warning_version", -1L) == version) {
+            remove()
+            return
+        }
+        val noRepeat = CheckBox(this).apply {
+            text = "Don't show this dialog again"
+            setPadding(24, 12, 24, 12)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Remove saved batch link?")
+            .setMessage("This only removes the link from PhotoSplitter's saved batches list. Your scanned photos are not deleted and should still be available in your photo library app.")
+            .setView(noRepeat)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Remove link") { _, _ ->
+                if (noRepeat.isChecked) {
+                    prefs.edit().putLong("skip_history_warning_version", version).apply()
+                }
+                remove()
+            }
+            .show()
+    }
+
+    private fun openSavedBatch(item: JSONObject) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(Uri.parse(item.optString("uri")), "image/jpeg")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            })
+        } catch (_: Exception) {
+            Toast.makeText(this, "Could not open saved photo", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun batchHistoryRow(item: JSONObject, index: Int, onRemoved: () -> Unit): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        row.addView(Button(this).apply {
+            isAllCaps = false
+            text = "${item.optString("label")} · ${item.optInt("count")} photos\\n${item.optString("path")}"
+            setOnClickListener { openSavedBatch(item) }
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(Button(this).apply {
+            text = "×"
+            isAllCaps = false
+            textSize = 22f
+            contentDescription = "Remove ${item.optString("label")} from saved batches"
+            minWidth = (44 * resources.displayMetrics.density).toInt()
+            setOnClickListener { removeHistoryLink(index, onRemoved) }
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        return row
+    }
+
+    private fun showOlderBatches() {
+        val dialog = Dialog(this)
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 24, 24, 24)
+            setBackgroundColor(Color.rgb(248, 251, 255))
+        }
+        container.addView(Button(this).apply {
+            text = "← Back"
+            isAllCaps = false
+            setOnClickListener { dialog.dismiss() }
+        })
+        container.addView(TextView(this).apply {
+            text = "Older saved batches"
+            textSize = 24f
+            setPadding(8, 16, 8, 16)
+        })
+        val olderList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val olderScroll = ScrollView(this).apply { addView(olderList) }
+        container.addView(olderScroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        fun populate() {
+            olderList.removeAllViews()
+            val history = savedBatchHistory()
+            if (history.length() <= 5) {
+                olderList.addView(TextView(this).apply { text = "No older batches" })
+            }
+            for (i in 5 until history.length()) {
+                val item = history.optJSONObject(i) ?: continue
+                olderList.addView(batchHistoryRow(item, i) { populate() })
+            }
+        }
+        populate()
+        dialog.setContentView(container)
+        dialog.window?.setLayout(-1, -1)
+        dialog.setOnDismissListener { refreshHistory() }
+        dialog.show()
+        dialog.window?.setLayout(-1, -1)
     }
 
     private fun refreshHistory() {
         historyList.removeAllViews()
-        val prefs = getSharedPreferences("photo_settings", MODE_PRIVATE)
-        val history = try { JSONArray(prefs.getString("saved_batches", "[]")) } catch (_: Exception) { JSONArray() }
+        val history = savedBatchHistory()
         if (history.length() == 0) {
             historyList.addView(TextView(this).apply { text = "No saved batches yet" })
             return
         }
-        for (i in 0 until history.length()) {
+        for (i in 0 until minOf(5, history.length())) {
             val item = history.optJSONObject(i) ?: continue
-            val uri = item.optString("uri")
+            historyList.addView(batchHistoryRow(item, i) { refreshHistory() })
+        }
+        if (history.length() > 5) {
             historyList.addView(Button(this).apply {
+                text = "Show more (${history.length() - 5} older batches)"
                 isAllCaps = false
-                text = "${item.optString("label")} · ${item.optInt("count")} photos\n${item.optString("path")}"
-                setOnClickListener {
-                    try {
-                        startActivity(Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(Uri.parse(uri), "image/jpeg")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        })
-                    } catch (_: Exception) {
-                        Toast.makeText(this@MainActivity, "Could not open saved photo", Toast.LENGTH_LONG).show()
-                    }
-                }
+                setOnClickListener { showOlderBatches() }
             })
         }
     }
