@@ -12,6 +12,9 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.widget.CheckBox
+import android.widget.EditText
+import android.text.InputType
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ImageView
@@ -31,6 +34,9 @@ class MainActivity : Activity() {
     private lateinit var saveButton: Button
     private lateinit var scroll: ScrollView
     private lateinit var results: LinearLayout
+    private lateinit var collectionField: EditText
+    private lateinit var batchField: EditText
+    private lateinit var batchFolderToggle: CheckBox
     private val displayedCrops = mutableListOf<Bitmap>()
     private var selected: Bitmap? = null
     private var pendingCameraFile: File? = null
@@ -74,6 +80,35 @@ class MainActivity : Activity() {
         listOf(camera, pick).forEachIndexed { i, button -> styleButton(button, i == 0) }
         layout.addView(title)
         layout.addView(status)
+        val prefs = getSharedPreferences("photo_settings", MODE_PRIVATE)
+        layout.addView(TextView(this).apply {
+            text = "Collection folder"
+            textSize = 17f
+            setPadding(0, 16, 0, 4)
+        })
+        collectionField = EditText(this).apply {
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setText(prefs.getString("collection", "PhotoSplitter") ?: "PhotoSplitter")
+            hint = "PhotoSplitter"
+        }
+        layout.addView(collectionField)
+        layout.addView(TextView(this).apply {
+            text = "Batch label (optional)"
+            textSize = 17f
+            setPadding(0, 12, 0, 4)
+        })
+        batchField = EditText(this).apply {
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            hint = "e.g. Christmas 2025"
+        }
+        layout.addView(batchField)
+        batchFolderToggle = CheckBox(this).apply {
+            text = "Save each labelled batch in its own subfolder"
+            isChecked = prefs.getBoolean("batch_subfolder", true)
+        }
+        layout.addView(batchFolderToggle)
         layout.addView(camera)
         layout.addView(pick)
         retakeButton = Button(this).apply {
@@ -285,6 +320,14 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun safeFolderName(value: String, fallback: String): String {
+        val clean = value.trim()
+            .replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001F]"), "_")
+            .trim('.', ' ')
+            .take(90)
+        return if (clean.isBlank() || clean == "." || clean == "..") fallback else clean
+    }
+
     private fun saveCrops() {
         val source = selected ?: return
         val boxes = editor.boxes.map { it.copyQuad() }
@@ -292,7 +335,16 @@ class MainActivity : Activity() {
             Toast.makeText(this, "No crop boxes to save", Toast.LENGTH_SHORT).show()
             return
         }
-        status.text = "Saving..."
+        val collection = safeFolderName(collectionField.text.toString(), "PhotoSplitter")
+        val batch = batchField.text.toString().trim()
+        val batchFolder = batchFolderToggle.isChecked
+        val relativePath = "Pictures/" + collection +
+            if (batchFolder && batch.isNotBlank()) "/" + safeFolderName(batch, "Unlabelled") else ""
+        getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
+            .putString("collection", collection)
+            .putBoolean("batch_subfolder", batchFolder)
+            .apply()
+        status.text = "Saving to $relativePath..."
         Thread {
             var saved = 0
             try {
@@ -301,7 +353,7 @@ class MainActivity : Activity() {
                     val values = ContentValues().apply {
                         put(MediaStore.Images.Media.DISPLAY_NAME, "PhotoSplitter_${System.currentTimeMillis()}_${saved}.jpg")
                         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/PhotoSplitter")
+                        put(MediaStore.Images.Media.RELATIVE_PATH, relativePath + "/")
                     }
                     val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                     if (uri != null) {
@@ -312,7 +364,7 @@ class MainActivity : Activity() {
                     }
                     crop.recycle()
                 }
-                runOnUiThread { status.text = "Saved $saved crops to Pictures/PhotoSplitter." }
+                runOnUiThread { status.text = "Saved $saved crops to $relativePath." }
             } catch (e: Exception) {
                 runOnUiThread { status.text = "Save failed: ${e.message}" }
             }
