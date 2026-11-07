@@ -27,6 +27,8 @@ import android.widget.ScrollView
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.core.content.FileProvider
 import java.io.File
 import kotlin.math.max
@@ -43,6 +45,7 @@ class MainActivity : Activity() {
     private lateinit var results: LinearLayout
     private lateinit var collectionField: EditText
     private lateinit var batchField: EditText
+    private lateinit var historyList: LinearLayout
     private lateinit var batchFolderToggle: CheckBox
     private val displayedCrops = mutableListOf<Bitmap>()
     private val photoTitles = mutableListOf<String>()
@@ -112,7 +115,14 @@ class MainActivity : Activity() {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             hint = "e.g. Christmas 2025"
         }
-        layout.addView(batchField)
+        val batchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        batchRow.addView(batchField, LinearLayout.LayoutParams(0, -2, 1f))
+        batchRow.addView(Button(this).apply {
+            text = "Clear"
+            isAllCaps = false
+            setOnClickListener { batchField.setText("") }
+        })
+        layout.addView(batchRow)
         batchFolderToggle = CheckBox(this).apply {
             text = "Save each labelled batch in its own subfolder"
             isChecked = prefs.getBoolean("batch_subfolder", true)
@@ -175,6 +185,14 @@ class MainActivity : Activity() {
         styleButton(saveButton, true)
         saveButton.visibility = View.GONE
         layout.addView(saveButton)
+        layout.addView(TextView(this).apply {
+            text = "Previous saved batches"
+            textSize = 20f
+            setPadding(0, 24, 0, 8)
+        })
+        historyList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        layout.addView(historyList)
+        refreshHistory()
         scroll = ScrollView(this).apply { addView(layout) }
         setContentView(scroll)
     }
@@ -412,6 +430,76 @@ class MainActivity : Activity() {
         return output
     }
 
+    private fun nextBatchLabel(label: String): String {
+        if (label.isBlank()) return ""
+        val match = Regex("^(.*?)(\\\\d+)$").matchEntire(label)
+        if (match == null) return "$label 2"
+        val digits = match.groupValues[2]
+        val next = digits.toLongOrNull()?.plus(1) ?: return "$label 2"
+        return match.groupValues[1] + next.toString().padStart(digits.length, '0')
+    }
+
+    private fun recordBatch(label: String, path: String, firstUri: String, count: Int) {
+        val prefs = getSharedPreferences("photo_settings", MODE_PRIVATE)
+        val previous = try { JSONArray(prefs.getString("saved_batches", "[]")) } catch (_: Exception) { JSONArray() }
+        val history = JSONArray()
+        history.put(JSONObject().apply {
+            put("label", label.ifBlank { "Untitled batch" })
+            put("path", path)
+            put("uri", firstUri)
+            put("count", count)
+            put("savedAt", System.currentTimeMillis())
+        })
+        for (i in 0 until minOf(previous.length(), 29)) history.put(previous.get(i))
+        prefs.edit().putString("saved_batches", history.toString()).apply()
+    }
+
+    private fun refreshHistory() {
+        historyList.removeAllViews()
+        val prefs = getSharedPreferences("photo_settings", MODE_PRIVATE)
+        val history = try { JSONArray(prefs.getString("saved_batches", "[]")) } catch (_: Exception) { JSONArray() }
+        if (history.length() == 0) {
+            historyList.addView(TextView(this).apply { text = "No saved batches yet" })
+            return
+        }
+        for (i in 0 until history.length()) {
+            val item = history.optJSONObject(i) ?: continue
+            val uri = item.optString("uri")
+            historyList.addView(Button(this).apply {
+                isAllCaps = false
+                text = "${item.optString("label")} · ${item.optInt("count")} photos\\n${item.optString("path")}"
+                setOnClickListener {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(Uri.parse(uri), "image/jpeg")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        })
+                    } catch (_: Exception) {
+                        Toast.makeText(this@MainActivity, "Could not open saved photo", Toast.LENGTH_LONG).show()
+                    }
+                }
+            })
+        }
+    }
+
+    private fun resetAfterSave(nextLabel: String) {
+        selected = null
+        editor.editing = false
+        editor.photo = null
+        editor.setBoxes(emptyList())
+        editor.visibility = View.GONE
+        preview.setImageDrawable(null)
+        preview.visibility = View.GONE
+        retakeButton.visibility = View.GONE
+        cropControls.visibility = View.GONE
+        saveButton.visibility = View.GONE
+        clearResults()
+        photoTitles.clear()
+        photoPeople.clear()
+        batchField.setText(nextLabel)
+        scroll.smoothScrollTo(0, 0)
+    }
+
     private fun saveCrops() {
         val source = selected ?: return
         val boxes = editor.boxes.map { it.copyQuad() }
@@ -437,6 +525,7 @@ class MainActivity : Activity() {
         scroll.smoothScrollTo(0, 0)
         Thread {
             var saved = 0
+            var firstSavedUri = ""
             try {
                 for ((index, box) in boxes.withIndex()) {
                     val crop = PhotoDetector.crop(source, box)
@@ -449,7 +538,10 @@ class MainActivity : Activity() {
                     val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                     if (uri != null) {
                         contentResolver.openOutputStream(uri)?.use {
-                            if (captioned.compress(Bitmap.CompressFormat.JPEG, 95, it)) saved++
+                            if (captioned.compress(Bitmap.CompressFormat.JPEG, 95, it)) {
+                                saved++
+                                if (firstSavedUri.isBlank()) firstSavedUri = uri.toString()
+                            }
                         }
                         // Keep searchable descriptions in the MediaStore database.
                         val title = titles.getOrNull(index).orEmpty().trim()
@@ -474,7 +566,12 @@ class MainActivity : Activity() {
                 }
                 runOnUiThread {
                     status.text = "Saved $saved of ${boxes.size} photos to $relativePath."
-                    Toast.makeText(this, "Saved $saved photos", Toast.LENGTH_LONG).show()
+                    if (saved > 0) {
+                        recordBatch(batchLabel, relativePath, firstSavedUri, saved)
+                        refreshHistory()
+                    }
+                    if (saved == boxes.size) resetAfterSave(nextBatchLabel(batchLabel))
+                    Toast.makeText(this, "Saved $saved of ${boxes.size} photos", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 runOnUiThread {
