@@ -1,6 +1,5 @@
 package com.photosplitter
 
-import com.google.android.gms.auth.api.identity.RevokeAccessRequest
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
@@ -353,20 +352,14 @@ class MainActivity : Activity() {
     private fun disconnectPhotos() {
         AlertDialog.Builder(this)
             .setTitle("Disconnect Google Photos?")
-            .setMessage("PhotoSplitter will lose permission to upload to Google Photos. Photos already saved locally or uploaded to Google Photos will remain untouched.")
+            .setMessage("PhotoSplitter will stop treating Google Photos as connected and will not upload unless you authorize it again. This does not revoke Google's account-level permission. You can revoke that separately in your Google Account's third-party connections settings. Existing photos are not deleted.")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Disconnect") { _, _ ->
-                Identity.getAuthorizationClient(this).revokeAccess(\n                    RevokeAccessRequest.builder().setScopes(listOf(photosScope)).build()\n                )
-                    .addOnSuccessListener {
-                        photosConnected = false
-                        pendingPhotos = emptyList()
-                        getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
-                            .putBoolean("google_photos_connected", false).apply()
-                        Toast.makeText(this, "Google Photos disconnected", Toast.LENGTH_LONG).show()
-                    }
-                    .addOnFailureListener {
-                        Toast.makeText(this, "Could not disconnect: ${it.message}", Toast.LENGTH_LONG).show()
-                    }
+                photosConnected = false
+                pendingPhotos = emptyList()
+                getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
+                    .putBoolean("google_photos_connected", false).apply()
+                Toast.makeText(this, "Google Photos disconnected in PhotoSplitter", Toast.LENGTH_LONG).show()
             }
             .show()
     }
