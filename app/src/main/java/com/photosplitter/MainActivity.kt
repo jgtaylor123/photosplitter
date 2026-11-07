@@ -744,7 +744,12 @@ class MainActivity : Activity() {
                             }
                         }
                         // Experimental: see whether Google Photos imports XMP dc:description.
-                        embedXmpDescription(temp, title, names, batchLabel)
+                        embedXmpDescription(
+                            temp, title, names, batchLabel,
+                            // Experimental keyword appears ONLY in XMP, not visible caption,
+                            // filename, EXIF, or MediaStore. First crop of each save only.
+                            if (index == 0) "PSMETA7426" else ""
+                        )
                         val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                             ?: error("Could not create saved photo")
                         val written = contentResolver.openOutputStream(uri)?.use { output ->
