@@ -446,7 +446,7 @@ class MainActivity : Activity() {
 
     private fun nextBatchLabel(label: String): String {
         if (label.isBlank()) return ""
-        val match = Regex("^(.*?)(\\\\d+)$").matchEntire(label)
+        val match = Regex("^(.*?)(\\d+)$").matchEntire(label)
         if (match == null) return "$label 2"
         val digits = match.groupValues[2]
         val next = digits.toLongOrNull()?.plus(1) ?: return "$label 2"
