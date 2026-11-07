@@ -66,7 +66,7 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 44, 32, 44)
-            setBackgroundColor(Color.rgb(248, 251, 255))
+            setBackgroundColor(Color.WHITE)
         }
         val title = TextView(this).apply {
             text = "PhotoSplitter"
@@ -248,9 +248,9 @@ class MainActivity : Activity() {
         button.setTypeface(null, android.graphics.Typeface.BOLD)
         button.setTextColor(if (primary) Color.WHITE else Color.rgb(30, 58, 138))
         button.background = rounded(
-            if (primary) Color.rgb(37, 99, 235) else Color.rgb(239, 246, 255),
+            if (primary) Color.rgb(37, 99, 235) else Color.WHITE,
             12,
-            if (primary) null else Color.rgb(191, 219, 254)
+            if (primary) null else Color.rgb(219, 234, 254)
         )
         button.setPadding(18, 12, 18, 12)
         button.layoutParams = LinearLayout.LayoutParams(-1, (52 * resources.displayMetrics.density).toInt()).apply {
@@ -567,6 +567,9 @@ class MainActivity : Activity() {
         }
         row.addView(Button(this).apply {
             isAllCaps = false
+            setTextColor(Color.rgb(17, 24, 39))
+            background = rounded(Color.WHITE, 10, Color.rgb(219, 234, 254))
+            elevation = 0f
             text = "${item.optString("label")} · ${item.optInt("count")} photos\n${item.optString("path")}"
             setOnClickListener { openSavedBatch(item) }
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
@@ -601,7 +604,7 @@ class MainActivity : Activity() {
             setOnClickListener { dialog.dismiss() }
         })
         container.addView(TextView(this).apply {
-            text = "Older saved batches"
+            text = "All saved batches"
             textSize = 24f
             setPadding(8, 16, 8, 16)
         })
@@ -611,10 +614,10 @@ class MainActivity : Activity() {
         fun populate() {
             olderList.removeAllViews()
             val history = savedBatchHistory()
-            if (history.length() <= 5) {
-                olderList.addView(TextView(this).apply { text = "No older batches" })
+            if (history.length() == 0) {
+                olderList.addView(TextView(this).apply { text = "No saved batches" })
             }
-            for (i in 5 until history.length()) {
+            for (i in 0 until history.length()) {
                 val item = history.optJSONObject(i) ?: continue
                 olderList.addView(batchHistoryRow(item, i) { populate() })
             }
@@ -640,7 +643,7 @@ class MainActivity : Activity() {
         }
         if (history.length() > 5) {
             historyList.addView(Button(this).apply {
-                text = "Show more (${history.length() - 5} older batches)"
+                text = "Show more · All ${history.length} batches"
                 isAllCaps = false
                 setOnClickListener { showOlderBatches() }
             })
