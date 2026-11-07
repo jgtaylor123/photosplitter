@@ -424,6 +424,13 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.WHITE)
         }
         content.addView(TextView(this).apply {
+            text = "How to use PhotoSplitter  ⓘ"
+            textSize = 17f
+            setTextColor(Color.rgb(30, 58, 138))
+            setPadding(0, padding / 2, 0, padding / 2)
+            setOnClickListener { dialog.dismiss(); showWelcomeGuide() }
+        })
+        content.addView(TextView(this).apply {
             text = "PhotoSplitter menu"
             textSize = 22f
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -1170,11 +1177,4 @@ class MainActivity : Activity() {
             }
         }.start()
     }
-}        content.addView(TextView(this).apply {
-            text = "How to use PhotoSplitter  ⓘ"
-            textSize = 17f
-            setTextColor(Color.rgb(30, 58, 138))
-            setPadding(0, padding / 2, 0, padding / 2)
-            setOnClickListener { dialog.dismiss(); showWelcomeGuide() }
-        })
-
+}
