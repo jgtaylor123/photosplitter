@@ -284,7 +284,7 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad / 2, pad, pad / 2)
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(253, 248, 239))
         }
         val brand = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -293,7 +293,7 @@ class MainActivity : Activity() {
         brand.addView(ImageView(this).apply {
             setImageResource(com.photosplitter.R.drawable.photosplitter_icon)
             contentDescription = "Vintage photographs"
-        }, LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()))
+        }, LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()).apply { rightMargin = (14 * density).toInt() })
         brand.addView(TextView(this).apply {
             text = "PhotoSplitter"
             textSize = 26f
@@ -305,13 +305,14 @@ class MainActivity : Activity() {
             text = "One shot. Every photo."
             textSize = 20f
             setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(Color.rgb(17, 24, 39))
-            setPadding(0, pad / 3, 0, 0)
+            setTextColor(Color.rgb(169, 102, 56))
+            typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.BOLD)
+            setPadding(0, pad / 2, 0, 0)
         })
         root.addView(TextView(this).apply {
             text = "Photograph several printed pictures at once. We'll split them into individual photos you can label and save to your phone or Google Photos."
             textSize = 15f
-            setTextColor(Color.rgb(55, 65, 81))
+            setTextColor(Color.rgb(63, 67, 64))
             setPadding(0, pad / 3, 0, pad / 3)
         })
         // A real-life example of 16 slightly misaligned vintage prints on a dark surface.
@@ -323,9 +324,9 @@ class MainActivity : Activity() {
             contentDescription = "Example: 16 vintage family and travel photographs laid out on a dark background, slightly crooked with gaps between prints"
         })
         root.addView(TextView(this).apply {
-            text = "Place prints on a dark surface with small gaps; slight angles are fine. Try 16 at once, then adjust for your camera's resolution."
+            text = "Lay prints on a dark surface with small gaps; slight angles are fine.\\n\\nThe number you can capture depends on your camera's resolution. I've found 16 works well, but experiment with batch sizes to balance speed and detail."
             textSize = 15f
-            setTextColor(Color.rgb(55, 65, 81))
+            setTextColor(Color.rgb(63, 67, 64))
             setPadding(0, pad / 2, 0, pad / 2)
         })
         val neverAgain = CheckBox(this).apply {
@@ -335,7 +336,7 @@ class MainActivity : Activity() {
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, 0, pad, pad / 2)
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(253, 248, 239))
         }
         footer.addView(neverAgain)
         footer.addView(Button(this).apply {
@@ -350,7 +351,7 @@ class MainActivity : Activity() {
         val scroller = ScrollView(this).apply { addView(root) }
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(253, 248, 239))
             addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
             addView(footer, LinearLayout.LayoutParams(-1, -2))
         }
