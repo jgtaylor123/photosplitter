@@ -38,6 +38,8 @@ class MainActivity : Activity() {
     private lateinit var batchField: EditText
     private lateinit var batchFolderToggle: CheckBox
     private val displayedCrops = mutableListOf<Bitmap>()
+    private val photoTitles = mutableListOf<String>()
+    private val photoPeople = mutableListOf<String>()
     private var selected: Bitmap? = null
     private var pendingCameraFile: File? = null
     private val requestPick = 100
@@ -248,6 +250,8 @@ class MainActivity : Activity() {
             selected = if (!matrix.isIdentity) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true) else decoded
             if (selected !== decoded) decoded.recycle()
             clearResults()
+            photoTitles.clear()
+            photoPeople.clear()
             retakeButton.visibility = if (requestCode == requestCamera) View.VISIBLE else View.GONE
             editor.editing = false
             editor.photo = selected
@@ -270,6 +274,10 @@ class MainActivity : Activity() {
     private fun showCrops() {
         val source = selected ?: return
         clearResults()
+        while (photoTitles.size < editor.boxes.size) photoTitles.add("")
+        while (photoPeople.size < editor.boxes.size) photoPeople.add("")
+        while (photoTitles.size > editor.boxes.size) photoTitles.removeAt(photoTitles.lastIndex)
+        while (photoPeople.size > editor.boxes.size) photoPeople.removeAt(photoPeople.lastIndex)
         results.addView(TextView(this).apply {
             text = "Detected photos (${editor.boxes.size})"
             textSize = 22f
@@ -277,6 +285,30 @@ class MainActivity : Activity() {
         })
         editor.boxes.forEachIndexed { index, box ->
             results.addView(TextView(this).apply { text = "Photo ${index + 1}"; textSize = 17f })
+            results.addView(EditText(this).apply {
+                hint = "Photo title (e.g. Howard in Paris)"
+                setSingleLine(true)
+                setText(photoTitles[index])
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                        photoTitles[index] = s?.toString() ?: ""
+                    }
+                    override fun afterTextChanged(s: android.text.Editable?) {}
+                })
+            })
+            results.addView(EditText(this).apply {
+                hint = "People (comma-separated, e.g. Howard, Margaret)"
+                setSingleLine(true)
+                setText(photoPeople[index])
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                        photoPeople[index] = s?.toString() ?: ""
+                    }
+                    override fun afterTextChanged(s: android.text.Editable?) {}
+                })
+            })
             val cropped = PhotoDetector.crop(source, box)
             displayedCrops.add(cropped)
             results.addView(ImageView(this).apply {
@@ -333,6 +365,9 @@ class MainActivity : Activity() {
     private fun saveCrops() {
         val source = selected ?: return
         val boxes = editor.boxes.map { it.copyQuad() }
+        val titles = photoTitles.toList()
+        val people = photoPeople.toList()
+        val batchLabel = batchField.text.toString().trim()
         if (boxes.isEmpty()) {
             Toast.makeText(this, "No crop boxes to save", Toast.LENGTH_SHORT).show()
             return
@@ -350,18 +385,34 @@ class MainActivity : Activity() {
         Thread {
             var saved = 0
             try {
-                for (box in boxes) {
+                for ((index, box) in boxes.withIndex()) {
                     val crop = PhotoDetector.crop(source, box)
                     val values = ContentValues().apply {
-                        put(MediaStore.Images.Media.DISPLAY_NAME, "PhotoSplitter_${System.currentTimeMillis()}_${saved}.jpg")
+                        put(MediaStore.Images.Media.DISPLAY_NAME, "PhotoSplitter_${System.currentTimeMillis()}_${index}.jpg")
                         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
                         put(MediaStore.Images.Media.RELATIVE_PATH, relativePath + "/")
                     }
                     val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                     if (uri != null) {
                         contentResolver.openOutputStream(uri)?.use {
-                            crop.compress(Bitmap.CompressFormat.JPEG, 95, it)
-                            saved++
+                            if (crop.compress(Bitmap.CompressFormat.JPEG, 95, it)) saved++
+                        }
+                        // Keep searchable descriptions in the MediaStore database.
+                        val title = titles.getOrNull(index).orEmpty().trim()
+                        val names = people.getOrNull(index).orEmpty().trim()
+                        val description = listOfNotNull(
+                            batchLabel.takeIf { it.isNotBlank() }?.let { "Batch: $it" },
+                            title.takeIf { it.isNotBlank() }?.let { "Title: $it" },
+                            names.takeIf { it.isNotBlank() }?.let { "People: $it" }
+                        ).joinToString("; ")
+                        if (description.isNotBlank()) {
+                            try {
+                                contentResolver.update(uri, ContentValues().apply {
+                                    put(MediaStore.Images.Media.DESCRIPTION, description)
+                                }, null, null)
+                            } catch (_: Exception) {
+                                // Some Android gallery providers do not support descriptions.
+                            }
                         }
                     }
                     crop.recycle()
