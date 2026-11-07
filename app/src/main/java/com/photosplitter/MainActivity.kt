@@ -120,16 +120,21 @@ class MainActivity : Activity() {
         }
         val batchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         batchRow.addView(batchField, LinearLayout.LayoutParams(0, -2, 1f))
-        batchRow.addView(Button(this).apply {
+        batchRow.addView(TextView(this).apply {
             text = "×"
             contentDescription = "Clear batch label"
-            textSize = 22f
-            minWidth = (44 * resources.displayMetrics.density).toInt()
-            minimumWidth = minWidth
-            isAllCaps = false
-            setBackgroundColor(Color.WHITE)
+            textSize = 24f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(Color.rgb(55, 65, 81))
+            background = null
+            elevation = 0f
+            isClickable = true
+            isFocusable = true
             setOnClickListener { batchField.setText("") }
-        })
+        }, LinearLayout.LayoutParams(
+            (44 * resources.displayMetrics.density).toInt(),
+            LinearLayout.LayoutParams.MATCH_PARENT
+        ))
         layout.addView(batchRow)
         batchFolderToggle = CheckBox(this).apply {
             text = "Save each labelled batch in its own subfolder"
@@ -550,15 +555,21 @@ class MainActivity : Activity() {
             text = "${item.optString("label")} · ${item.optInt("count")} photos\n${item.optString("path")}"
             setOnClickListener { openSavedBatch(item) }
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(Button(this).apply {
+        row.addView(TextView(this).apply {
             text = "×"
-            isAllCaps = false
-            textSize = 22f
+            textSize = 24f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(Color.rgb(55, 65, 81))
             contentDescription = "Remove ${item.optString("label")} from saved batches"
-            minWidth = (44 * resources.displayMetrics.density).toInt()
-            setBackgroundColor(Color.WHITE)
+            background = null
+            elevation = 0f
+            isClickable = true
+            isFocusable = true
             setOnClickListener { removeHistoryLink(index, onRemoved) }
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }, LinearLayout.LayoutParams(
+            (48 * resources.displayMetrics.density).toInt(),
+            LinearLayout.LayoutParams.MATCH_PARENT
+        ))
         return row
     }
 
