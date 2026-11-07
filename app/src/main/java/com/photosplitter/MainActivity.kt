@@ -23,6 +23,8 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.speech.RecognizerIntent
+import android.content.ActivityNotFoundException
 import android.widget.CheckBox
 import android.widget.EditText
 import android.text.InputType
@@ -64,6 +66,8 @@ class MainActivity : Activity() {
     private val requestPhotosAuthorization = 102
     private var pendingPhotos: List<Pair<Uri, Pair<String, String>>> = emptyList()
     private var photosConnected = false
+    private val requestSpeech = 103
+    private var speechTarget: EditText? = null
     private val requestPick = 100
     private val requestCamera = 101
 
@@ -525,6 +529,20 @@ class MainActivity : Activity() {
             }
             return
         }
+        if (requestCode == requestSpeech) {
+            val recognized = if (resultCode == RESULT_OK) {
+                data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            } else null
+            if (!recognized.isNullOrBlank()) {
+                speechTarget?.let { field ->
+                    val current = field.text.toString().trim()
+                    field.setText(if (current.isBlank()) recognized else "$current $recognized")
+                    field.setSelection(field.text.length)
+                }
+            }
+            speechTarget = null
+            return
+        }
         if (requestCode != requestPick && requestCode != requestCamera) return
         if (resultCode != RESULT_OK) {
             if (requestCode == requestCamera) pendingCameraFile?.delete()
@@ -586,6 +604,46 @@ class MainActivity : Activity() {
         displayedCrops.clear()
     }
 
+    private fun addDictationField(hintText: String, initial: String, onTextChanged: (String) -> Unit) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        val field = EditText(this).apply {
+            hint = hintText
+            setSingleLine(true)
+            setText(initial)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    onTextChanged(s?.toString() ?: "")
+                }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
+        }
+        row.addView(field)
+        row.addView(TextView(this).apply {
+            text = "🎤"
+            textSize = 24f
+            contentDescription = "Dictate $hintText"
+            setPadding(12, 12, 12, 12)
+            setOnClickListener {
+                speechTarget = field
+                try {
+                    startActivityForResult(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak $hintText")
+                    }, requestSpeech)
+                } catch (e: ActivityNotFoundException) {
+                    speechTarget = null
+                    Toast.makeText(this@MainActivity, "Speech recognition is not available on this device", Toast.LENGTH_LONG).show()
+                }
+            }
+        })
+        results.addView(row)
+    }
+
     private fun showCrops() {
         val source = selected ?: return
         clearResults()
@@ -600,30 +658,12 @@ class MainActivity : Activity() {
         })
         editor.boxes.forEachIndexed { index, box ->
             results.addView(TextView(this).apply { text = "Photo ${index + 1}"; textSize = 17f })
-            results.addView(EditText(this).apply {
-                hint = "Photo title (e.g. Howard in Paris)"
-                setSingleLine(true)
-                setText(photoTitles[index])
-                addTextChangedListener(object : android.text.TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                        photoTitles[index] = s?.toString() ?: ""
-                    }
-                    override fun afterTextChanged(s: android.text.Editable?) {}
-                })
-            })
-            results.addView(EditText(this).apply {
-                hint = "People (comma-separated, e.g. Howard, Margaret)"
-                setSingleLine(true)
-                setText(photoPeople[index])
-                addTextChangedListener(object : android.text.TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                        photoPeople[index] = s?.toString() ?: ""
-                    }
-                    override fun afterTextChanged(s: android.text.Editable?) {}
-                })
-            })
+            addDictationField("Photo title (e.g. Howard in Paris)", photoTitles[index]) {
+                photoTitles[index] = it
+            }
+            addDictationField("People (comma-separated, e.g. Howard, Margaret)", photoPeople[index]) {
+                photoPeople[index] = it
+            }
             val cropped = PhotoDetector.crop(source, box)
             displayedCrops.add(cropped)
             results.addView(ImageView(this).apply {
