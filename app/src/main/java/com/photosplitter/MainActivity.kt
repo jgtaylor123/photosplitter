@@ -29,6 +29,7 @@ import android.widget.ScrollView
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.PopupMenu
 import org.json.JSONArray
 import org.json.JSONObject
 import androidx.core.content.FileProvider
@@ -93,7 +94,35 @@ class MainActivity : Activity() {
             }
         }
         listOf(camera, pick).forEachIndexed { i, button -> styleButton(button, i == 0) }
-        layout.addView(title)
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
+        val menuButton = TextView(this).apply {
+            text = "☰"
+            textSize = 27f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(Color.rgb(17, 24, 39))
+            contentDescription = "Open menu"
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { anchor ->
+                PopupMenu(this@MainActivity, anchor).apply {
+                    menu.add("Google Photos integration")
+                    setOnMenuItemClickListener {
+                        showGooglePhotosIntegration()
+                        true
+                    }
+                    show()
+                }
+            }
+        }
+        header.addView(menuButton, LinearLayout.LayoutParams(
+            (48 * resources.displayMetrics.density).toInt(),
+            (48 * resources.displayMetrics.density).toInt()
+        ))
+        layout.addView(header)
         layout.addView(status)
         val prefs = getSharedPreferences("photo_settings", MODE_PRIVATE)
         layout.addView(TextView(this).apply {
@@ -233,6 +262,26 @@ class MainActivity : Activity() {
                 if (editor.editing) false else super.onTouchEvent(ev)
         }.apply { addView(layout) }
         setContentView(scroll)
+    }
+
+    private fun showGooglePhotosIntegration() {
+        val density = resources.displayMetrics.density
+        val content = TextView(this).apply {
+            text = "PhotoSplitter saves photos directly to your device. No account is required.\\n\\n" +
+                "Optionally connect Google Photos to experiment with adding descriptions to backed-up photos. " +
+                "We haven't confirmed that Google Photos will make these descriptions searchable.\\n\\n" +
+                "Google Photos sign-in isn't configured yet. Once the Google Cloud OAuth setup is ready, " +
+                "this menu will offer a Connect Google Photos button."
+            textSize = 16f
+            setTextColor(Color.rgb(17, 24, 39))
+            setPadding((24 * density).toInt(), (12 * density).toInt(),
+                (24 * density).toInt(), (12 * density).toInt())
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Google Photos integration")
+            .setView(content)
+            .setPositiveButton("Got it", null)
+            .show()
     }
 
     private fun rounded(fill: Int, radius: Int, stroke: Int? = null): GradientDrawable =
