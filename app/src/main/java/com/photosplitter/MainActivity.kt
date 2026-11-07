@@ -118,7 +118,11 @@ class MainActivity : Activity() {
         val batchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         batchRow.addView(batchField, LinearLayout.LayoutParams(0, -2, 1f))
         batchRow.addView(Button(this).apply {
-            text = "Clear"
+            text = "×"
+            contentDescription = "Clear batch label"
+            textSize = 22f
+            minWidth = (44 * resources.displayMetrics.density).toInt()
+            minimumWidth = minWidth
             isAllCaps = false
             setOnClickListener { batchField.setText("") }
         })
@@ -161,6 +165,10 @@ class MainActivity : Activity() {
             setOnClickListener {
                 if (selected == null) return@setOnClickListener
                 editor.editing = !editor.editing
+                if (editor.editing) {
+                    // Place the original photograph at the top and lock scrolling during edits.
+                    scroll.scrollTo(0, editor.top)
+                }
                 editor.visibility = View.VISIBLE
                 preview.visibility = View.GONE
                 text = if (editor.editing) "Finish Editing" else "Edit Crops"
@@ -193,7 +201,13 @@ class MainActivity : Activity() {
         historyList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         layout.addView(historyList)
         refreshHistory()
-        scroll = ScrollView(this).apply { addView(layout) }
+        scroll = object : ScrollView(this) {
+            override fun onInterceptTouchEvent(ev: android.view.MotionEvent): Boolean =
+                if (editor.editing) false else super.onInterceptTouchEvent(ev)
+
+            override fun onTouchEvent(ev: android.view.MotionEvent): Boolean =
+                if (editor.editing) false else super.onTouchEvent(ev)
+        }.apply { addView(layout) }
         setContentView(scroll)
     }
 
