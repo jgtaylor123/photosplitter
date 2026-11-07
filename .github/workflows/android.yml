@@ -44,6 +44,14 @@ jobs:
           echo "$SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/photosplitter.jks"
           echo "PHOTOSPLITTER_KEYSTORE_PATH=$RUNNER_TEMP/photosplitter.jks" >> "$GITHUB_ENV"
           echo "PHOTOSPLITTER_KEYSTORE_PASSWORD=$SIGNING_PASSWORD" >> "$GITHUB_ENV"
+      - name: Show Android signing SHA-1 fingerprint
+        shell: bash
+        run: |
+          keytool -list -v \
+            -keystore "$PHOTOSPLITTER_KEYSTORE_PATH" \
+            -alias photosplitter \
+            -storepass "$PHOTOSPLITTER_KEYSTORE_PASSWORD" \
+            | grep -E '^[[:space:]]*SHA1:'
       - name: Build signed release APK
         run: gradle --no-daemon :app:assembleRelease
       - name: Upload APK
