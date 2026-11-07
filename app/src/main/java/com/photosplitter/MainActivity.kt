@@ -4,6 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.content.ContentValues
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.BitmapFactory
@@ -362,6 +367,33 @@ class MainActivity : Activity() {
         return if (clean.isBlank()) fallback else clean
     }
 
+    // Add a caption below the photograph, never over the original pixels.
+    private fun withCaption(photo: Bitmap, title: String): Bitmap {
+        if (title.isBlank()) return photo
+        val fontSize = (photo.width * 0.045f).coerceIn(18f, 64f)
+        val inset = (photo.width * 0.04f).coerceAtLeast(12f)
+        val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(25, 35, 55)
+            textSize = fontSize
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        }
+        val layout = StaticLayout.Builder.obtain(
+            title, 0, title.length, textPaint,
+            (photo.width - 2f * inset).toInt().coerceAtLeast(1)
+        ).setAlignment(Layout.Alignment.ALIGN_CENTER).setIncludePad(false).build()
+        val padY = (fontSize * 0.7f).toInt()
+        val extraHeight = layout.height + 2 * padY
+        val output = Bitmap.createBitmap(photo.width, photo.height + extraHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        canvas.drawColor(Color.WHITE)
+        canvas.drawBitmap(photo, 0f, 0f, null)
+        canvas.save()
+        canvas.translate(inset, photo.height + padY.toFloat())
+        layout.draw(canvas)
+        canvas.restore()
+        return output
+    }
+
     private fun saveCrops() {
         val source = selected ?: return
         val boxes = editor.boxes.map { it.copyQuad() }
@@ -381,12 +413,16 @@ class MainActivity : Activity() {
             .putString("collection", collection)
             .putBoolean("batch_subfolder", batchFolder)
             .apply()
-        status.text = "Saving to $relativePath..."
+        status.text = "Saving ${boxes.size} photos to $relativePath..."
+        saveButton.isEnabled = false
+        saveButton.text = "Saving..."
+        scroll.smoothScrollTo(0, 0)
         Thread {
             var saved = 0
             try {
                 for ((index, box) in boxes.withIndex()) {
                     val crop = PhotoDetector.crop(source, box)
+                    val captioned = withCaption(crop, titles.getOrNull(index).orEmpty().trim())
                     val values = ContentValues().apply {
                         put(MediaStore.Images.Media.DISPLAY_NAME, "PhotoSplitter_${System.currentTimeMillis()}_${index}.jpg")
                         put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
@@ -395,7 +431,7 @@ class MainActivity : Activity() {
                     val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                     if (uri != null) {
                         contentResolver.openOutputStream(uri)?.use {
-                            if (crop.compress(Bitmap.CompressFormat.JPEG, 95, it)) saved++
+                            if (captioned.compress(Bitmap.CompressFormat.JPEG, 95, it)) saved++
                         }
                         // Keep searchable descriptions in the MediaStore database.
                         val title = titles.getOrNull(index).orEmpty().trim()
@@ -415,11 +451,23 @@ class MainActivity : Activity() {
                             }
                         }
                     }
+                    if (captioned !== crop) captioned.recycle()
                     crop.recycle()
                 }
-                runOnUiThread { status.text = "Saved $saved crops to $relativePath." }
+                runOnUiThread {
+                    status.text = "Saved $saved of ${boxes.size} photos to $relativePath."
+                    Toast.makeText(this, "Saved $saved photos", Toast.LENGTH_LONG).show()
+                }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "Save failed: ${e.message}" }
+                runOnUiThread {
+                    status.text = "Save failed after $saved photos: ${e.message}"
+                    Toast.makeText(this, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                runOnUiThread {
+                    saveButton.isEnabled = true
+                    saveButton.text = "Save Crops"
+                }
             }
         }.start()
     }
