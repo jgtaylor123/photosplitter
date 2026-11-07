@@ -743,6 +743,8 @@ class MainActivity : Activity() {
                                 saveAttributes()
                             }
                         }
+                        // Experimental: see whether Google Photos imports XMP dc:description.
+                        embedXmpDescription(temp, title, names, batchLabel)
                         val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                             ?: error("Could not create saved photo")
                         val written = contentResolver.openOutputStream(uri)?.use { output ->
