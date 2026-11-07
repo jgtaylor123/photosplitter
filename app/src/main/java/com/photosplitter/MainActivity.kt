@@ -80,7 +80,9 @@ class MainActivity : Activity() {
         window.navigationBarColor = Color.rgb(17, 24, 39)
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 44, 32, 44)
+            // Keep the brand header comfortably below the Android status bar.
+            val topSpace = (24 * resources.displayMetrics.density).toInt()
+            setPadding(32, 44 + topSpace, 32, 44)
             setBackgroundColor(Color.WHITE)
         }
         val title = TextView(this).apply {
