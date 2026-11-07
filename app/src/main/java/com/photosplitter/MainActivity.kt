@@ -25,6 +25,7 @@ import kotlin.math.max
 
 class MainActivity : Activity() {
     private lateinit var status: TextView
+    private lateinit var retakeButton: Button
     private lateinit var preview: ImageView
     private lateinit var editor: CropEditor
     private lateinit var saveButton: Button
@@ -75,7 +76,13 @@ class MainActivity : Activity() {
         layout.addView(status)
         layout.addView(camera)
         layout.addView(pick)
-        layout.addView(split)
+        retakeButton = Button(this).apply {
+            text = "Retake Photo"
+            visibility = View.GONE
+            setOnClickListener { takePhoto() }
+        }
+        styleButton(retakeButton)
+        layout.addView(retakeButton)
         preview = ImageView(this).apply {
             adjustViewBounds = true
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -206,6 +213,8 @@ class MainActivity : Activity() {
             selected = if (!matrix.isIdentity) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true) else decoded
             if (selected !== decoded) decoded.recycle()
             clearResults()
+            retakeButton.visibility = if (requestCode == requestCamera) View.VISIBLE else View.GONE
+            editor.editing = false
             editor.photo = selected
             editor.setBoxes(emptyList())
             editor.visibility = View.GONE
