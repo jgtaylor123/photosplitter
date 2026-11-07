@@ -321,11 +321,13 @@ class MainActivity : Activity() {
     }
 
     private fun safeFolderName(value: String, fallback: String): String {
+        val forbidden = setOf('/', '\\', ':', '*', '?', '"', '<', '>', '|')
         val clean = value.trim()
-            .replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001F]"), "_")
+            .map { if (it in forbidden || it.code < 32) '_' else it }
+            .joinToString("")
             .trim('.', ' ')
             .take(90)
-        return if (clean.isBlank() || clean == "." || clean == "..") fallback else clean
+        return if (clean.isBlank()) fallback else clean
     }
 
     private fun saveCrops() {
