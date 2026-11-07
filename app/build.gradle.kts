@@ -17,8 +17,8 @@ android {
         applicationId = "com.photosplitter"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.6"
+        versionCode = 7
+        versionName = "0.7"
     }
     buildTypes {
         getByName("release") {
@@ -35,4 +35,5 @@ android {
 dependencies {
     implementation("androidx.core:core:1.15.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
 }
