@@ -38,6 +38,7 @@ class MainActivity : Activity() {
     private lateinit var editor: CropEditor
     private lateinit var saveButton: Button
     private lateinit var scroll: ScrollView
+    private var zoomDialog: android.app.Dialog? = null
     private lateinit var results: LinearLayout
     private lateinit var collectionField: EditText
     private lateinit var batchField: EditText
@@ -271,6 +272,8 @@ class MainActivity : Activity() {
     }
 
     private fun clearResults() {
+        zoomDialog?.dismiss()
+        zoomDialog = null
         results.removeAllViews()
         displayedCrops.forEach { if (!it.isRecycled) it.recycle() }
         displayedCrops.clear()
@@ -318,6 +321,12 @@ class MainActivity : Activity() {
             displayedCrops.add(cropped)
             results.addView(ImageView(this).apply {
                 setImageBitmap(cropped)
+                contentDescription = "Open photo ${index + 1} to zoom"
+                setOnClickListener {
+                    zoomDialog?.dismiss()
+                    zoomDialog = showZoomPhoto(this@MainActivity, cropped,
+                        photoTitles.getOrNull(index)?.takeIf { it.isNotBlank() } ?: "Photo ${index + 1}")
+                }
                 adjustViewBounds = true
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 layoutParams = LinearLayout.LayoutParams(-1, (240 * resources.displayMetrics.density).toInt()).apply { bottomMargin = 20 }
