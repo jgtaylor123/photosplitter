@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets
  * Adds a standard JPEG APP1 XMP packet alongside existing EXIF metadata.
  * Google Photos may or may not import dc:description into its editable caption.
  */
-internal fun embedXmpDescription(file: File, title: String, people: String, batch: String) {
+internal fun embedXmpDescription(file: File, title: String, people: String, batch: String, searchProbe: String = "") {
     if (title.isBlank()) return
     fun xml(value: String): String = value
         .replace("&", "&amp;")
@@ -20,7 +20,7 @@ internal fun embedXmpDescription(file: File, title: String, people: String, batc
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
 <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:photosplitter="https://photosplitter.app/ns/1.0/">
 <dc:title><rdf:Alt><rdf:li xml:lang="x-default">${xml(title)}</rdf:li></rdf:Alt></dc:title>
-<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${xml(title)}</rdf:li></rdf:Alt></dc:description>
+<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${xml(title + if (searchProbe.isNotBlank()) " " + searchProbe else "")}</rdf:li></rdf:Alt></dc:description>
 <photosplitter:people>${xml(people)}</photosplitter:people>
 <photosplitter:batch>${xml(batch)}</photosplitter:batch>
 </rdf:Description></rdf:RDF></x:xmpmeta>"""
