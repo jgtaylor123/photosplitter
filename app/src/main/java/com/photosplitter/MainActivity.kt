@@ -85,9 +85,9 @@ class MainActivity : Activity() {
         }
         val title = TextView(this).apply {
             text = "PhotoSplitter"
-            textSize = 30f
-            setTextColor(Color.rgb(17, 24, 39))
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            textSize = 31f
+            setTextColor(Color.rgb(7, 59, 76))
+            typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.BOLD)
             setPadding(8, 16, 8, 20)
         }
         status = TextView(this).apply {
@@ -112,6 +112,11 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
         }
+        header.addView(ImageView(this).apply {
+            setImageResource(com.photosplitter.R.drawable.photosplitter_icon)
+            contentDescription = "PhotoSplitter vintage photograph logo"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }, LinearLayout.LayoutParams((48 * resources.displayMetrics.density).toInt(), (48 * resources.displayMetrics.density).toInt()))
         header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
         val menuButton = TextView(this).apply {
             text = "☰"
@@ -281,6 +286,21 @@ class MainActivity : Activity() {
             setPadding(pad, pad, pad, pad)
             setBackgroundColor(Color.WHITE)
         }
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        brand.addView(ImageView(this).apply {
+            setImageResource(com.photosplitter.R.drawable.photosplitter_icon)
+            contentDescription = "Vintage photographs"
+        }, LinearLayout.LayoutParams((62 * density).toInt(), (62 * density).toInt()))
+        brand.addView(TextView(this).apply {
+            text = "PhotoSplitter"
+            textSize = 29f
+            setTextColor(Color.rgb(7, 59, 76))
+            typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.BOLD)
+        })
+        root.addView(brand)
         root.addView(TextView(this).apply {
             text = "Welcome to PhotoSplitter"
             textSize = 22f
@@ -318,7 +338,7 @@ class MainActivity : Activity() {
         }
         footer.addView(neverAgain)
         footer.addView(Button(this).apply {
-            text = "Get started"
+            text = "Get Started →"
             styleButton(this, true)
             setOnClickListener {
                 getSharedPreferences("photo_settings", MODE_PRIVATE).edit()
