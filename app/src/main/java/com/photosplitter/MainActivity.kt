@@ -70,11 +70,7 @@ class MainActivity : Activity() {
                 startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }, requestPick)
             }
         }
-        val split = Button(this).apply {
-            text = "Detect Photos"
-            setOnClickListener { process() }
-        }
-        listOf(camera, pick, split).forEachIndexed { i, button -> styleButton(button, i == 0) }
+        listOf(camera, pick).forEachIndexed { i, button -> styleButton(button, i == 0) }
         layout.addView(title)
         layout.addView(status)
         layout.addView(camera)
@@ -215,7 +211,7 @@ class MainActivity : Activity() {
             editor.visibility = View.GONE
             preview.setImageBitmap(selected)
             preview.visibility = View.VISIBLE
-            status.text = "Photo ready. Tap Detect Photos to preview the individual crops."
+            process()
         } catch (e: Exception) {
             status.text = "Could not load photo: ${e.message}"
         }
@@ -258,6 +254,7 @@ class MainActivity : Activity() {
             try {
                 val boxes = PhotoDetector.detectQuads(source)
                 runOnUiThread {
+                    if (selected !== source) return@runOnUiThread
                     editor.photo = source
                     editor.setBoxes(boxes)
                     // Always show a visible result, including when detection finds nothing.
@@ -272,7 +269,9 @@ class MainActivity : Activity() {
                     status.text = "Found ${boxes.size} photos. Review crops directly below the original image."
                 }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "Detection failed: ${e.message}" }
+                runOnUiThread {
+                    if (selected === source) status.text = "Detection failed: ${e.message}"
+                }
             }
         }.start()
     }
