@@ -67,7 +67,11 @@ object PhotoDetector {
             }
             val bw=hiU-loU;val bh=hiV-loV
             if(bw< w/15.0 || bh<h/15.0 || bw/bh !in .35..2.85 || count/(bw*bh)<.55) continue
-            val pad=max(2.0,min(bw,bh)*.025)
+            // Keep a small protective border for scalloped/irregular paper edges.
+            // The previous 2.5% margin included too much of the dark background.
+            // Pixel-based padding is relative to the downscaled detection image;
+            // actual millimetres cannot be inferred without a scale reference.
+            val pad=max(1.5,min(bw,bh)*.008)
             loU-=pad;hiU+=pad;loV-=pad;hiV+=pad
             fun corner(u:Double,v:Double):PointF = PointF(
                 ((cx+u*a-v*b)/w*source.width).toFloat().coerceIn(0f,source.width.toFloat()),
